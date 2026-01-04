@@ -63,7 +63,7 @@ func TestService_ProcessingStatus(t *testing.T) {
 				Status: tc.requestStatus,
 			}
 
-			status, err := s.processingStatus(req)
+			status, err := s.processingStatus(req.Status)
 			if err != nil {
 				if tc.expectedError != err.Error() {
 					t.Errorf("ERROR: got: %s, expect: %s\n", err.Error(), tc.expectedError)
@@ -149,7 +149,7 @@ func TestService_processingRadius(t *testing.T) {
 			req := &dto.RegistrationIncidentRequest{
 				RadiusInMeters: tc.requestRadius,
 			}
-			res, err := s.processingRadius(req)
+			res, err := s.processingRadius(req.RadiusInMeters)
 			if err != nil {
 				if !strings.Contains(err.Error(), tc.expectedError) {
 					t.Errorf("ERROR: got: %s, expect: %s\n", err.Error(), tc.expectedError)

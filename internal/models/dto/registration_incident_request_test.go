@@ -102,7 +102,7 @@ func TestRegistrationIncidentRequest_Validate(t *testing.T) {
 			expectedError: fmt.Errorf("Longitude cannot be empty"),
 		},
 		{
-			name: "invalid_5_empty_desctiption",
+			name: "invalid_5_empty_Description",
 			dto: &dto.RegistrationIncidentRequest{
 				Name:           "fire",
 				Type:           "fire",
@@ -112,7 +112,7 @@ func TestRegistrationIncidentRequest_Validate(t *testing.T) {
 				RadiusInMeters: getIntPtr(100),
 				Status:         getPtrStr("active"),
 			},
-			expectedError: fmt.Errorf("desctiption cannot be empty"),
+			expectedError: fmt.Errorf("Description cannot be empty"),
 		},
 		{
 			name: "invalid_6_raduis==0",
@@ -326,28 +326,28 @@ func TestRegistrationIncidentRequest_ValidateCoordinates(t *testing.T) {
 			latitude:  "48.123456789",
 			longitude: "0",
 			wantErr:   true,
-			errMsg:    "latitide: invalid format",
+			errMsg:    "latitide: incorrect format",
 		},
 		{
 			name:      "Too many decimals in longitude",
 			latitude:  "0",
 			longitude: "2.123456789",
 			wantErr:   true,
-			errMsg:    "longitude: invalid format",
+			errMsg:    "longitude: incorrect format",
 		},
 		{
 			name:      "Too many decimals in both",
 			latitude:  "48.123456789",
 			longitude: "2.123456789",
 			wantErr:   true,
-			errMsg:    "latitide: invalid format",
+			errMsg:    "latitide: incorrect format",
 		},
 		{
 			name:      "Exactly 9 decimals in longitude",
 			latitude:  "0",
 			longitude: "12.345678901",
 			wantErr:   true,
-			errMsg:    "longitude: invalid format",
+			errMsg:    "longitude: incorrect format",
 		},
 
 		{

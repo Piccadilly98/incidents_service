@@ -61,3 +61,5 @@ func (pr *PostgresRepository) GetExistByIncidentID(ctx context.Context, id strin
 	}
 	return exists, nil
 }
+
+// func (pr *PostgresRepository) UpdateIncidentByID(ctx context.Context, id string, exec Executor)

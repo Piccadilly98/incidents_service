@@ -49,11 +49,11 @@ func (s *Service) FromDtoToEntitie(req *dto.RegistrationIncidentRequest) (*entit
 	}
 	entit := req.ToBaseEntity()
 	var err error
-	entit.Status, err = s.processingStatus(req)
+	entit.Status, err = s.processingStatus(req.Status)
 	if err != nil {
 		return nil, err
 	}
-	entit.Radius, err = s.processingRadius(req)
+	entit.Radius, err = s.processingRadius(req.RadiusInMeters)
 	if err != nil {
 		return nil, err
 	}
@@ -65,31 +65,31 @@ func (s *Service) FromDtoToEntitie(req *dto.RegistrationIncidentRequest) (*entit
 	return entit, nil
 }
 
-func (s *Service) processingStatus(req *dto.RegistrationIncidentRequest) (string, error) {
+func (s *Service) processingStatus(statusReq *string) (string, error) {
 	status := StatusActive
-	if req.Status != nil {
-		if len(*req.Status) > 20 {
+	if statusReq != nil {
+		if len(*statusReq) > 20 {
 			return "", fmt.Errorf("very long status")
 		}
-		if *req.Status != StatusActive && *req.Status != StatusResolved {
+		if *statusReq != StatusActive && *statusReq != StatusResolved {
 			return "", fmt.Errorf("invalid status")
 		}
-		status = *req.Status
+		status = *statusReq
 	}
 	return status, nil
 }
 
-func (s *Service) processingRadius(req *dto.RegistrationIncidentRequest) (int, error) {
+func (s *Service) processingRadius(radiusResp *int) (int, error) {
 	radius := s.config.DefaultRadius
 
-	if req.RadiusInMeters != nil {
-		if *req.RadiusInMeters > s.config.MaxRadius {
+	if radiusResp != nil {
+		if *radiusResp > s.config.MaxRadius {
 			return 0, fmt.Errorf("radius cannot be > %d", s.config.MaxRadius)
 		}
-		if *req.RadiusInMeters <= 0 {
+		if *radiusResp <= 0 {
 			return 0, fmt.Errorf("radius cannot be <= 0")
 		}
-		radius = *req.RadiusInMeters
+		radius = *radiusResp
 	}
 
 	return radius, nil
@@ -147,3 +147,17 @@ func (s *Service) GetIncidentInfoByID(ctx context.Context, id string) (*dto.Inci
 	}
 	return dto.CreateAdminResponse(res), nil
 }
+
+// func (s *Service) UpdateIncidentByID(ctx context.Context, id string, resp *dto.UpdateRequest) (*dto.IncidentAdminResponse, error) {
+// 	err := resp.Validate()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	radius, err := s.processingRadius(resp.Radius)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	status, err := s.processingStatus(resp.Status)
+// }

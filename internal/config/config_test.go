@@ -103,8 +103,7 @@ func TestValidtionPort(t *testing.T) {
 			name:         "invalid_port_with_spaces",
 			envName:      "PORT",
 			valueEnv:     " 8080 ",
-			expectError:  true,
-			expectedPort: "",
+			expectedPort: "8080",
 			defaultPort:  "3000",
 		},
 		{

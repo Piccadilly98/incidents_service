@@ -45,7 +45,7 @@ func (r *RegistrationIncidentRequest) Validate() error {
 		return fmt.Errorf("Longitude cannot be empty")
 	}
 	if r.Description != nil && *r.Description == "" {
-		return fmt.Errorf("desctiption cannot be empty")
+		return fmt.Errorf("Description cannot be empty")
 	}
 	if r.RadiusInMeters != nil && *r.RadiusInMeters <= 0 {
 		return fmt.Errorf("radius canot be <= 0")
@@ -94,7 +94,7 @@ func (r *RegistrationIncidentRequest) ValidateCoordinates() error {
 	}
 	if len(longArr) == 2 {
 		if len(longArr[1]) > maxLongitudeDecimals {
-			return fmt.Errorf("longitude: invalid format")
+			return fmt.Errorf("longitude: incorrect format")
 		}
 	}
 	return nil
