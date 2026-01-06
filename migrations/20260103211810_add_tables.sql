@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS incidents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL,
+    name VARCHAR(100) NOT NULL UNIQUE,
     type VARCHAR(100) NOT NULL,
     latitude DECIMAL(10, 8) CHECK (latitude BETWEEN -90 AND 90),
     longitude DECIMAL(11, 8) CHECK (longitude BETWEEN -180 AND 180),
