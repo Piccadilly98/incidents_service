@@ -57,7 +57,7 @@ func TestUpdateRequest_Validate(t *testing.T) {
 		{
 			name:          "no_fields_provided",
 			dto:           &dto.UpdateRequest{},
-			expectedError: fmt.Errorf("not data for update"),
+			expectedError: fmt.Errorf("no data for update"),
 		},
 		{
 			name: "all_fields_nil",
@@ -68,7 +68,7 @@ func TestUpdateRequest_Validate(t *testing.T) {
 				Radius:      nil,
 				Status:      nil,
 			},
-			expectedError: fmt.Errorf("not data for update"),
+			expectedError: fmt.Errorf("no data for update"),
 		},
 		{
 			name: "empty_name",

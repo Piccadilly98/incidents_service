@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/Piccadilly98/incidents_service/internal/models/dto"
@@ -217,14 +218,141 @@ func (s *Service) toUpdateEntity(res *entities.ReadIncident, req *dto.UpdateRequ
 	isActive := res.IsActive
 	var resolvedTime *time.Time = res.ResolvedDate
 	if req.Status != nil {
-		if *req.Status == StatusResolved || *req.Status == StatusArchived {
+		switch *req.Status {
+		case StatusResolved, StatusArchived:
 			isActive = false
 			now := time.Now().UTC()
 			resolvedTime = &now
-		} else if *req.Status == StatusActive {
+		case StatusActive:
 			isActive = true
 			resolvedTime = nil
 		}
 	}
 	return req.ToEntity(resolvedTime, isActive)
+}
+
+func (s *Service) DeactivateIncidentByID(ctx context.Context, id string) (*dto.IncidentAdminResponse, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	read, err := s.db.GetInfoByIncidentID(ctx, id, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if read.Status == StatusArchived {
+		return nil, fmt.Errorf("incident already archived")
+	}
+	archived := StatusArchived
+	req := &dto.UpdateRequest{
+		Status: &archived,
+	}
+
+	if err := s.processingIncidentIDForUpdate(read, req, id); err != nil {
+		return nil, err
+	}
+
+	updateEntity := s.toUpdateEntity(read, req)
+
+	updated, err := s.db.UpdateIncidentByID(ctx, id, updateEntity, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	s.changeLogger.Printf("INFO: incident %s deactivated", id)
+
+	return dto.CreateAdminResponse(updated), nil
+}
+
+func (s *Service) DeleteIncidentByID(ctx context.Context, id string) error {
+	err := s.db.DeleteIncidentByID(ctx, id, nil)
+	if err != nil {
+		return err
+	}
+	s.changeLogger.Printf("CRITICAL: incident %s force deleted", id)
+	return nil
+}
+
+func (s *Service) GetPagination(ctx context.Context, query *dto.PaginationQueryParams) (*dto.PaginationResponse, error) {
+	if query.Radius != nil {
+		_, err := s.processingRadius(query.Radius)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if query.Status != "" {
+		if query.Status != StatusActive && query.Status != StatusArchived && query.Status != StatusResolved {
+			return nil, fmt.Errorf("invalid status")
+		}
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	count, err := s.db.GetCountRows(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	offset := 0
+	limit := 0
+	if query.PageNum != nil {
+		pages := s.GetCountPages(count)
+		if *query.PageNum > pages {
+			return nil, fmt.Errorf("invalid page: max %d", pages)
+		}
+
+		offset = s.config.MaxRowsInPage * (*query.PageNum - 1)
+		limit = s.config.MaxRowsInPage
+	}
+	entit := s.toPaginationEntity(query, offset, limit)
+	read, err := s.db.GetPaginationIncidentsInfo(ctx, entit, tx)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	res := []*dto.IncidentAdminResponse{}
+
+	for _, model := range read {
+		dto := dto.CreateAdminResponse(model)
+		res = append(res, dto)
+	}
+	return dto.ToPaginationResponse(res), nil
+}
+
+func (s *Service) GetCountPages(countRows int) int {
+	res := float64(countRows) / float64(s.config.MaxRowsInPage)
+	integerPart, fractionalPart := math.Modf(res)
+	if fractionalPart != 0 {
+		integerPart++
+	}
+	return int(integerPart)
+}
+
+func (s *Service) toPaginationEntity(query *dto.PaginationQueryParams, offset, limit int) *entities.PaginationIncidents {
+	id := ""
+	if query.ID != nil {
+		id = *query.ID
+	}
+	res := &entities.PaginationIncidents{
+		Offset: offset,
+		Limit:  limit,
+		Status: query.Status,
+		Name:   query.Name,
+		Type:   query.Type,
+		Radius: query.Radius,
+		ID:     id,
+	}
+	return res
 }

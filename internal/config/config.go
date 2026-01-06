@@ -22,6 +22,7 @@ const (
 	EnvNameServerPort            = "SERVER_PORT"
 	EnvNameDefaultIncidentRadius = "DEFAULT_INCIDENT_RADIUS"
 	EnvNameMaxIncidentRadius     = "MAX_INCIDENT_RADIUS"
+	EnvMaxRowsInPage             = "MAX_ROWS_IN_PAGE"
 
 	EnvNameDbName     = "DB_NAME"
 	EnvNameDbSSlMode  = "DB_SSLMODE"
@@ -41,6 +42,7 @@ const (
 	DefaultWebhookMethod = "POST"
 	DefaultRadius        = 5000
 	DefaultMaxRadius     = 50000
+	DefaultMaxRowsInPage = 10
 )
 
 type Config struct {
@@ -51,6 +53,7 @@ type Config struct {
 	ServerPort    string
 	DefaultRadius int
 	MaxRadius     int
+	MaxRowsInPage int
 }
 
 func NewConfig(envCfg bool) (*Config, error) {
@@ -143,6 +146,22 @@ func NewConfig(envCfg bool) (*Config, error) {
 		log.Printf("invalid DEFAULT_INCIDENT_RADIUS on env: <%s>, change to defaul: %d\n", defaultRadiusStr, defaultRadius)
 	}
 
+	maxRowsPage := DefaultMaxRowsInPage
+	maxRowsPageStr := os.Getenv(EnvMaxRowsInPage)
+	if maxRowsPageStr != "" {
+		res, err := strconv.Atoi(maxRowsPageStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: not integer\n", EnvMaxRowsInPage)
+		}
+		if res <= 0 {
+			return nil, fmt.Errorf("invalid %s: <= 0\n", EnvMaxRowsInPage)
+		}
+
+		maxRowsPage = res
+	} else {
+		log.Printf("invalid MAX_ROWS_IN_PAGE on env: <%s>, change to defaul: %d\n", maxRowsPageStr, maxRowsPage)
+	}
+
 	conf := &Config{
 		ConnectionStr: fmt.Sprintf("user=%s port=%s password=%s dbname=%s host=%s sslmode=%s", dbUser, dbPort, dbPassword, nameDb, dbHost, dbSsl),
 		ServerAddr:    serverAddr,
@@ -151,6 +170,7 @@ func NewConfig(envCfg bool) (*Config, error) {
 		WebhookMethod: webhookMethod,
 		DefaultRadius: defaultRadius,
 		MaxRadius:     maxRadius,
+		MaxRowsInPage: maxRowsPage,
 	}
 	return conf, nil
 }

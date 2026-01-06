@@ -30,16 +30,6 @@ func NewRegistrationHandler(serv *service.Service, ew *error_worker.ErrorWorker)
 }
 
 func (rh *RegistrationHandler) Handler(w http.ResponseWriter, r *http.Request) {
-	if val, ok := r.Context().Value(ContextKeyValidApiKey).(bool); ok {
-		if val != ContextValueValidApiKey {
-			ErrorResponse(w, fmt.Errorf("invalid api-key"), http.StatusForbidden)
-			return
-		}
-	} else {
-		ErrorResponse(w, fmt.Errorf("invalid api-key"), http.StatusForbidden)
-		return
-	}
-
 	if !checkHeaderJson(w, r) {
 		return
 	}

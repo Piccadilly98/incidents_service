@@ -1,11 +1,18 @@
 package handlers
 
 const (
-	ContextKeyValidApiKey   = "api-key-valid"
 	ContextValueValidApiKey = true
 
-	HeaderJson        = "application/json"
-	HeaderContentType = "Content-Type"
+	HeaderJson            = "application/json"
+	HeaderContentType     = "Content-Type"
+	HeaderDeactivateMode  = "Deactivate-Mode"
+	HeaderDeactivateForce = "force"
+	URLParam              = "id"
 
-	URLParam = "id"
+	QueryParamIncidentID = "id"
+	QueryParamPageNum    = "page"
+	QueryParamType       = "type"
+	QueryParamName       = "name"
+	QueryParamRadius     = "radius"
+	QueryParamStatus     = "status"
 )

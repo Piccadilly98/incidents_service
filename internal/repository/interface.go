@@ -17,6 +17,9 @@ type DbReposytory interface {
 	GetInfoByIncidentID(ctx context.Context, id string, exec Executor) (*entities.ReadIncident, error)
 	GetExistByIncidentID(ctx context.Context, id string, exec Executor) (bool, error)
 	UpdateIncidentByID(ctx context.Context, id string, entit *entities.UpdateIncident, exec Executor) (*entities.ReadIncident, error)
+	DeleteIncidentByID(ctx context.Context, id string, exec Executor) error
+	GetCountRows(ctx context.Context, exec Executor) (int, error)
+	GetPaginationIncidentsInfo(ctx context.Context, entit *entities.PaginationIncidents, exec Executor) ([]*entities.ReadIncident, error)
 }
 
 type CacheReposytory interface {

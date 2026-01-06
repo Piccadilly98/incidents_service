@@ -29,16 +29,6 @@ func NewGetHandler(serv *service.Service, ew *error_worker.ErrorWorker) (*GetHan
 }
 
 func (g *GetHandler) Handler(w http.ResponseWriter, r *http.Request) {
-	if val, ok := r.Context().Value(ContextKeyValidApiKey).(bool); ok {
-		if val != ContextValueValidApiKey {
-			ErrorResponse(w, fmt.Errorf("invalid api-key"), http.StatusForbidden)
-			return
-		}
-	} else {
-		ErrorResponse(w, fmt.Errorf("invalid api-key"), http.StatusForbidden)
-		return
-	}
-
 	id := checkURLParam(w, r, g.ew)
 	if id == "" {
 		return
