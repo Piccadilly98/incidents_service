@@ -47,12 +47,14 @@ func (ew *ErrorWorker) initErrors() {
 	ew.AddNewUserError("latitide: incorrect format", http.StatusBadRequest)
 	ew.AddNewUserError("longitude: incorrect format", http.StatusBadRequest)
 	ew.AddNewUserError("invalid type incident_id", http.StatusBadRequest)
+	ew.AddNewUserError("no data for update", http.StatusBadRequest)
 
 	//service
 	ew.AddNewUserError("very long", http.StatusBadRequest)
 	ew.AddNewUserError("invalid status", http.StatusBadRequest)
 	ew.AddNewUserError("unexpected status", http.StatusBadRequest)
 	ew.AddNewUserError("invalid incident_id", http.StatusNotFound)
+	ew.AddNewUserError("unable to update archived incident", http.StatusConflict)
 
 	//db - user error
 	ew.AddNewDbError("violates foreign key", "invalid request", http.StatusBadRequest)
@@ -99,8 +101,8 @@ func (ew *ErrorWorker) ProcessError(err error) (int, error) {
 
 	switch {
 	case err == sql.ErrNoRows:
-		ew.userErrorLogger.Printf("Not found: %s\n", errStr)
-		return http.StatusNotFound, fmt.Errorf("not found")
+		ew.userErrorLogger.Printf("Not found id: %s\n", errStr)
+		return http.StatusNotFound, fmt.Errorf("not found id")
 	case strings.Contains(errStr, "context canceled"):
 		return -1, nil
 	case strings.Contains(errStr, "deadline exceeded"):
@@ -118,7 +120,7 @@ func (ew *ErrorWorker) ProcessError(err error) (int, error) {
 	for _, pattern := range ew.userPatterns {
 		if strings.Contains(errStr, pattern.text) {
 			if ew.isLoggingUserError {
-				ew.userErrorLogger.Printf("User error [code %d]: %v", pattern.code, err)
+				ew.userErrorLogger.Printf("User error [response code %d]: %v", pattern.code, err)
 			}
 			return pattern.code, err
 		}

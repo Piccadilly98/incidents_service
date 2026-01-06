@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS incidents (
     description TEXT,
     radius INTEGER NOT NULL,
     is_active BOOLEAN DEFAULT true,
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'resolved')),
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'resolved', 'archived')),
     created_date TIMESTAMP DEFAULT NOW(),
     updated_date TIMESTAMP,
     resolved_date TIMESTAMP

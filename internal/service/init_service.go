@@ -8,11 +8,6 @@ import (
 	"github.com/Piccadilly98/incidents_service/internal/repository"
 )
 
-const (
-	StatusActive   = "active"
-	StatusResolved = "resolved"
-)
-
 type Service struct {
 	cache            repository.CacheReposytory
 	db               repository.DbReposytory
@@ -26,7 +21,7 @@ func NewService(db repository.DbReposytory, cache repository.CacheReposytory, co
 		db:               db,
 		cache:            cache,
 		config:           config,
-		changeLogger:     log.New(os.Stdout, "[UPDATE SUBS INFO] ", log.Ldate|log.Ltime),
+		changeLogger:     log.New(os.Stdout, "[UPDATE INCIDENT INFO] ", log.Ldate|log.Ltime),
 		dbCriticalLogger: log.New(os.Stderr, "[DB PING ERROR] ", log.Ldate|log.Ltime),
 	}
 }

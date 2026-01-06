@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,12 @@ func TestService_ProcessingStatus(t *testing.T) {
 			name:           "active status returns active",
 			requestStatus:  getPtrStr(StatusActive),
 			expectedStatus: StatusActive,
+			expectedError:  "",
+		},
+		{
+			name:           "archived status returns archived",
+			requestStatus:  getPtrStr(StatusArchived),
+			expectedStatus: StatusArchived,
 			expectedError:  "",
 		},
 		{
@@ -186,6 +193,11 @@ func TestService_processingIsActive(t *testing.T) {
 		{
 			name:           "status_resolved",
 			status:         StatusResolved,
+			expectedResult: false,
+		},
+		{
+			name:           "status_archived",
+			status:         StatusArchived,
 			expectedResult: false,
 		},
 		{
@@ -654,14 +666,422 @@ func TestService_FromDtoToEntitie_Integration(t *testing.T) {
 	}
 }
 
-func getIntPtr(i int) *int {
-	return &i
+func Test_processingIncidentIDForUpdate(t *testing.T) {
+	testCases := []struct {
+		name        string
+		res         *entities.ReadIncident
+		resp        *dto.UpdateRequest
+		wantedError error
+	}{
+		{
+			name: "valid_update_description_in_active",
+			res: &entities.ReadIncident{
+				Status: StatusActive,
+			},
+			resp: &dto.UpdateRequest{
+				Description: getPtrStr("updated description"),
+			},
+		},
+		{
+			name: "invalid_update_status_to_archived_in_active",
+			res: &entities.ReadIncident{
+				Status: StatusActive,
+			},
+			resp: &dto.UpdateRequest{
+				Status: getPtrStr(StatusArchived),
+			},
+		},
+		{
+			name: "valid_update_type_in_active",
+			res: &entities.ReadIncident{
+				Status: StatusActive,
+			},
+			resp: &dto.UpdateRequest{
+				Type: getPtrStr("new_type"),
+			},
+		},
+		{
+			name: "valid_update_radius_in_active",
+			res: &entities.ReadIncident{
+				Status: StatusActive,
+			},
+			resp: &dto.UpdateRequest{
+				Radius: getIntPtr(100),
+			},
+		},
+		{
+			name: "valid_update_name_in_active",
+			res: &entities.ReadIncident{
+				Status: StatusActive,
+			},
+			resp: &dto.UpdateRequest{
+				Name: getPtrStr("new_name"),
+			},
+		},
+
+		{
+			name: "valid_update_description_in_archived",
+			res: &entities.ReadIncident{
+				Status: StatusArchived,
+			},
+			resp: &dto.UpdateRequest{
+				Description: getPtrStr("updated description"),
+			},
+		},
+		{
+			name: "invalid_update_type_in_archived",
+			res: &entities.ReadIncident{
+				Status: StatusArchived,
+			},
+			resp: &dto.UpdateRequest{
+				Type: getPtrStr("type"),
+			},
+			wantedError: fmt.Errorf("unable to update archived incident"),
+		},
+		{
+			name: "invalid_update_name_in_archived",
+			res: &entities.ReadIncident{
+				Status: StatusArchived,
+			},
+			resp: &dto.UpdateRequest{
+				Name: getPtrStr("name"),
+			},
+			wantedError: fmt.Errorf("unable to update archived incident"),
+		},
+		{
+			name: "invalid_update_radius_in_archived",
+			res: &entities.ReadIncident{
+				Status: StatusArchived,
+			},
+			resp: &dto.UpdateRequest{
+				Radius: getIntPtr(100),
+			},
+			wantedError: fmt.Errorf("unable to update archived incident"),
+		},
+		{
+			name: "invalid_update_status_in_archived",
+			res: &entities.ReadIncident{
+				Status: StatusArchived,
+			},
+			resp: &dto.UpdateRequest{
+				Status: getPtrStr("active"),
+			},
+			wantedError: fmt.Errorf("unable to update archived incident"),
+		},
+		{
+			name: "invalid_status_random",
+			res: &entities.ReadIncident{
+				Status: StatusActive,
+			},
+			resp: &dto.UpdateRequest{
+				Status: getPtrStr("random"),
+			},
+			wantedError: fmt.Errorf("invalid status"),
+		},
+		{
+			name: "invalid_status_empty",
+			res: &entities.ReadIncident{
+				Status: StatusActive,
+			},
+			resp: &dto.UpdateRequest{
+				Status: getPtrStr(""),
+			},
+			wantedError: fmt.Errorf("invalid status"),
+		},
+		{
+			name: "invalid_multiple_fields_in_archived",
+			res:  &entities.ReadIncident{Status: StatusArchived},
+			resp: &dto.UpdateRequest{
+				Name:   getPtrStr("new"),
+				Radius: getIntPtr(1000),
+			},
+			wantedError: fmt.Errorf("unable to update archived incident"),
+		},
+		{
+			name: "invalid_update_status_in_active",
+			res: &entities.ReadIncident{
+				Status: StatusActive,
+			},
+			resp: &dto.UpdateRequest{
+				Status: getPtrStr(StatusActive),
+			},
+			wantedError: fmt.Errorf("no data for update"),
+		},
+		{
+			name: "no_changes_all_same_values",
+			res: &entities.ReadIncident{
+				Status:      StatusActive,
+				Name:        "old_name",
+				Type:        "old_type",
+				Radius:      500,
+				Description: getPtrStr("old desc"),
+			},
+			resp: &dto.UpdateRequest{
+				Name:        getPtrStr("old_name"),
+				Type:        getPtrStr("old_type"),
+				Radius:      getIntPtr(500),
+				Description: getPtrStr("old desc"),
+				Status:      getPtrStr(StatusActive),
+			},
+			wantedError: fmt.Errorf("no data for update"),
+		},
+		{
+			name: "changes_only_description_nil_to_value",
+			res:  &entities.ReadIncident{Description: nil},
+			resp: &dto.UpdateRequest{Description: getPtrStr("new")},
+		},
+		{
+			name: "changes_description_value_to_nil",
+			res:  &entities.ReadIncident{Description: getPtrStr("old")},
+			resp: &dto.UpdateRequest{Description: getPtrStr("")},
+		},
+		{
+			name:        "changes_radius_zero",
+			res:         &entities.ReadIncident{Description: getPtrStr("old")},
+			resp:        &dto.UpdateRequest{Radius: getIntPtr(0)},
+			wantedError: fmt.Errorf("radius cannot be <= 0"),
+		},
+		{
+			name:        "changes_radius_negative",
+			res:         &entities.ReadIncident{Description: getPtrStr("old")},
+			resp:        &dto.UpdateRequest{Radius: getIntPtr(-1)},
+			wantedError: fmt.Errorf("radius cannot be <= 0"),
+		},
+		{
+			name:        "changes_radius_big_integer",
+			res:         &entities.ReadIncident{Description: getPtrStr("old")},
+			resp:        &dto.UpdateRequest{Radius: getIntPtr(1000000000)},
+			wantedError: fmt.Errorf("radius cannot be >"),
+		},
+	}
+	cfg, err := config.NewConfig(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewService(nil, nil, cfg)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := s.processingIncidentIDForUpdate(tc.res, tc.resp, tc.res.Id)
+			if err != nil {
+				if tc.wantedError != nil {
+					if !strings.Contains(err.Error(), tc.wantedError.Error()) {
+						t.Errorf("ERROR: got: %s, expect: %s\n", err.Error(), tc.wantedError.Error())
+					}
+				} else {
+					t.Errorf("unexpected error: %s\n", err.Error())
+				}
+			}
+		})
+	}
 }
 
-func getBoolPtr(b bool) *bool {
-	return &b
-}
+func TestToEntity(t *testing.T) {
+	testCases := []struct {
+		name     string
+		res      *entities.ReadIncident
+		req      *dto.UpdateRequest
+		expected *entities.UpdateIncident
+	}{
+		{
+			name: "only_name_and_description_updated",
+			res: &entities.ReadIncident{
+				Name:        "Old name",
+				Description: getPtrStr("Old desc"),
+				IsActive:    true,
+				Status:      StatusActive,
+			},
+			req: &dto.UpdateRequest{
+				Name:        getPtrStr("New name"),
+				Description: getPtrStr("New description"),
+			},
+			expected: &entities.UpdateIncident{
+				Name:         getPtrStr("New name"),
+				Description:  getPtrStr("New description"),
+				IsActive:     true,
+				ResolvedTime: nil,
+			},
+		},
+		{
+			name: "status_to_resolved",
+			res: &entities.ReadIncident{
+				IsActive: true,
+				Status:   StatusActive,
+			},
+			req: &dto.UpdateRequest{
+				Status: getPtrStr(StatusResolved),
+			},
+			expected: &entities.UpdateIncident{
+				Status:       getPtrStr(StatusResolved),
+				IsActive:     false,
+				ResolvedTime: getPtrTime(time.Now().UTC()),
+			},
+		},
+		{
+			name: "status_to_archived",
+			res: &entities.ReadIncident{
+				IsActive: true,
+				Status:   StatusActive,
+			},
+			req: &dto.UpdateRequest{
+				Status: getPtrStr(StatusArchived),
+			},
+			expected: &entities.UpdateIncident{
+				Status:       getPtrStr(StatusArchived),
+				IsActive:     false,
+				ResolvedTime: notNil(),
+			},
+		},
+		{
+			name: "status_remains_active",
+			res: &entities.ReadIncident{
+				IsActive: true,
+				Status:   StatusActive,
+			},
+			req: &dto.UpdateRequest{
+				Status: getPtrStr(StatusActive),
+				Radius: getIntPtr(8000),
+			},
+			expected: &entities.UpdateIncident{
+				Status:       getPtrStr(StatusActive),
+				Radius:       getIntPtr(8000),
+				IsActive:     true,
+				ResolvedTime: nil,
+			},
+		},
+		{
+			name: "full_update_with_resolve",
+			res: &entities.ReadIncident{
+				Name:     "Old",
+				Type:     "accident",
+				Radius:   3000,
+				IsActive: true,
+				Status:   StatusActive,
+			},
+			req: &dto.UpdateRequest{
+				Name:        getPtrStr("Major accident"),
+				Type:        getPtrStr("traffic jam"),
+				Radius:      getIntPtr(10000),
+				Description: getPtrStr("Resolved"),
+				Status:      getPtrStr(StatusResolved),
+			},
+			expected: &entities.UpdateIncident{
+				Name:         getPtrStr("Major accident"),
+				Type:         getPtrStr("traffic jam"),
+				Radius:       getIntPtr(10000),
+				Description:  getPtrStr("Resolved"),
+				Status:       getPtrStr(StatusResolved),
+				IsActive:     false,
+				ResolvedTime: notNil(),
+			},
+		},
+		{
+			name: "no_fields_provided",
+			res: &entities.ReadIncident{
+				IsActive: true,
+				Status:   StatusActive,
+			},
+			req: &dto.UpdateRequest{},
+			expected: &entities.UpdateIncident{
+				IsActive:     true,
+				ResolvedTime: nil,
+			},
+		},
+		{
+			name: "only_radius_update",
+			res: &entities.ReadIncident{
+				IsActive: true,
+				Status:   StatusActive,
+				Radius:   5000,
+			},
+			req: &dto.UpdateRequest{
+				Radius: getIntPtr(12000),
+			},
+			expected: &entities.UpdateIncident{
+				Radius:       getIntPtr(12000),
+				IsActive:     true,
+				ResolvedTime: nil,
+			},
+		},
+		{
+			name: "description_nil_to_value",
+			res: &entities.ReadIncident{
+				Description: nil,
+				IsActive:    true,
+				Status:      StatusActive,
+			},
+			req: &dto.UpdateRequest{
+				Description: getPtrStr("New description added"),
+			},
+			expected: &entities.UpdateIncident{
+				Description:  getPtrStr("New description added"),
+				IsActive:     true,
+				ResolvedTime: nil,
+			},
+		},
+		{
+			name: "description_value_to_empty",
+			res: &entities.ReadIncident{
+				Description: getPtrStr("Old text"),
+				IsActive:    true,
+				Status:      StatusActive,
+			},
+			req: &dto.UpdateRequest{
+				Description: getPtrStr(""),
+			},
+			expected: &entities.UpdateIncident{
+				Description:  getPtrStr(""),
+				IsActive:     true,
+				ResolvedTime: nil,
+			},
+		},
+		{
+			name: "already_resolved_no_new_time",
+			res: &entities.ReadIncident{
+				IsActive: false,
+				Status:   StatusResolved,
+			},
+			req: &dto.UpdateRequest{
+				Description: getPtrStr("Additional info"),
+			},
+			expected: &entities.UpdateIncident{
+				Description:  getPtrStr("Additional info"),
+				IsActive:     false,
+				ResolvedTime: nil,
+			},
+		},
+	}
 
-func getPtrStr(str string) *string {
-	return &str
+	s := Service{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := s.toUpdateEntity(tc.res, tc.req)
+			if !ptrStringEqual(got.Name, tc.expected.Name) {
+				t.Errorf("Name: got %v, want %v", got.Name, tc.expected.Name)
+			}
+			if !ptrStringEqual(got.Type, tc.expected.Type) {
+				t.Errorf("Type: got %v, want %v", got.Type, tc.expected.Type)
+			}
+			if !ptrStringEqual(got.Description, tc.expected.Description) {
+				t.Errorf("Description: got %v, want %v", got.Description, tc.expected.Description)
+			}
+			if !ptrIntEqual(got.Radius, tc.expected.Radius) {
+				t.Errorf("Radius: got %v, want %v", got.Radius, tc.expected.Radius)
+			}
+			if !ptrStringEqual(got.Status, tc.expected.Status) {
+				t.Errorf("Status: got %v, want %v", got.Status, tc.expected.Status)
+			}
+			if got.IsActive != tc.expected.IsActive {
+				t.Errorf("IsActive: got %v, want %v", got.IsActive, tc.expected.IsActive)
+			}
+			if got.ResolvedTime != nil {
+				if tc.expected.ResolvedTime == nil {
+					t.Errorf("unexpected resolved time: %s\n", got.ResolvedTime.String())
+				}
+			} else {
+				if tc.expected.ResolvedTime != nil {
+					t.Errorf("time error: got: nil, expect: not nill\n")
+				}
+			}
+		})
+	}
 }

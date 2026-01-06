@@ -16,10 +16,12 @@ const (
 	GoSumName = "go.sum"
 	NameEnv   = ".env"
 
-	EnvNameWebHookURL    = "WEBHOOK_URL"
-	EnvNameWebhookMethod = "WEBHOOK_METHOD"
-	EnvNameServerAddr    = "SERVER_ADDR"
-	EnvNameServerPort    = "SERVER_PORT"
+	EnvNameWebHookURL            = "WEBHOOK_URL"
+	EnvNameWebhookMethod         = "WEBHOOK_METHOD"
+	EnvNameServerAddr            = "SERVER_ADDR"
+	EnvNameServerPort            = "SERVER_PORT"
+	EnvNameDefaultIncidentRadius = "DEFAULT_INCIDENT_RADIUS"
+	EnvNameMaxIncidentRadius     = "MAX_INCIDENT_RADIUS"
 
 	EnvNameDbName     = "DB_NAME"
 	EnvNameDbSSlMode  = "DB_SSLMODE"
@@ -37,6 +39,8 @@ const (
 	DefaultServerPort    = "8080"
 	DefaultWebhookURL    = "hhtp://localhost:9090"
 	DefaultWebhookMethod = "POST"
+	DefaultRadius        = 5000
+	DefaultMaxRadius     = 50000
 )
 
 type Config struct {
@@ -103,18 +107,50 @@ func NewConfig(envCfg bool) (*Config, error) {
 	}
 	webhookMethod := os.Getenv(EnvNameWebhookMethod)
 	if webhookMethod != http.MethodPost && webhookMethod != http.MethodGet {
-		log.Printf("invalid WEBHOOK_METHOD if env: <%s>, change to defaul: %s\n", webhookMethod, DefaultWebhookMethod)
+		log.Printf("invalid WEBHOOK_METHOD on env: <%s>, change to defaul: %s\n", webhookMethod, DefaultWebhookMethod)
 		webhookMethod = DefaultWebhookMethod
 	}
+	maxRadius := DefaultMaxRadius
+	maxRadiusStr := os.Getenv(EnvNameMaxIncidentRadius)
+	if maxRadiusStr != "" {
+		res, err := strconv.Atoi(maxRadiusStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: not integer\n", EnvNameMaxIncidentRadius)
+		}
+		if res <= 0 {
+			return nil, fmt.Errorf("invalid %s: <= 0\n", EnvNameMaxIncidentRadius)
+		}
+		maxRadius = res
+	} else {
+		log.Printf("invalid MAX_INCIDENT_RADIUS on env: <%s>, change to defaul: %d\n", maxRadiusStr, DefaultMaxRadius)
+	}
+
+	defaultRadius := DefaultRadius
+	defaultRadiusStr := os.Getenv(EnvNameDefaultIncidentRadius)
+	if defaultRadiusStr != "" {
+		res, err := strconv.Atoi(defaultRadiusStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: not integer\n", EnvNameDefaultIncidentRadius)
+		}
+		if res <= 0 {
+			return nil, fmt.Errorf("invalid %s: <= 0\n", EnvNameDefaultIncidentRadius)
+		}
+		if res > maxRadius {
+			return nil, fmt.Errorf("invalid %s: value > %s\n", EnvNameDefaultIncidentRadius, EnvNameMaxIncidentRadius)
+		}
+		defaultRadius = res
+	} else {
+		log.Printf("invalid DEFAULT_INCIDENT_RADIUS on env: <%s>, change to defaul: %d\n", defaultRadiusStr, defaultRadius)
+	}
+
 	conf := &Config{
 		ConnectionStr: fmt.Sprintf("user=%s port=%s password=%s dbname=%s host=%s sslmode=%s", dbUser, dbPort, dbPassword, nameDb, dbHost, dbSsl),
 		ServerAddr:    serverAddr,
 		ServerPort:    servPort,
 		WebhookURL:    webhookURL,
 		WebhookMethod: webhookMethod,
-		// убрать проверку радиуса из бд + добавить в конфиг
-		DefaultRadius: 5000,
-		MaxRadius:     50000,
+		DefaultRadius: defaultRadius,
+		MaxRadius:     maxRadius,
 	}
 	return conf, nil
 }

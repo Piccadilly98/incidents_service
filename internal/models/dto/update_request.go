@@ -2,6 +2,7 @@ package dto
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Piccadilly98/incidents_service/internal/models/entities"
 )
@@ -19,7 +20,7 @@ func (u *UpdateRequest) Validate() error {
 		u.Description != nil ||
 		u.Radius != nil ||
 		u.Status != nil) {
-		return fmt.Errorf("not data for update")
+		return fmt.Errorf("no data for update")
 	}
 	if u.Name != nil {
 		if *u.Name == "" {
@@ -49,12 +50,14 @@ func (u *UpdateRequest) Validate() error {
 	return nil
 }
 
-func (u *UpdateRequest) ToBaseEntity() *entities.UpdateIncident {
+func (u *UpdateRequest) ToEntity(resolvedTime *time.Time, isActive bool) *entities.UpdateIncident {
 	return &entities.UpdateIncident{
-		Name:        u.Name,
-		Type:        u.Type,
-		Description: u.Description,
-		Radius:      u.Radius,
-		Status:      u.Status,
+		Name:         u.Name,
+		Type:         u.Type,
+		ResolvedTime: resolvedTime,
+		IsActive:     isActive,
+		Description:  u.Description,
+		Radius:       u.Radius,
+		Status:       u.Status,
 	}
 }
