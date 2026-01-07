@@ -413,7 +413,7 @@ func TestRegistrationIncidentRequest_ValidateCoordinates(t *testing.T) {
 				Type:      "test",
 			}
 
-			err := req.ValidateCoordinates()
+			err := dto.ValidateCoordinates(req.Latitude, req.Longitude)
 
 			hasErr := err != nil
 			if hasErr != tt.wantErr {

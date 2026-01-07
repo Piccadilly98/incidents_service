@@ -2,6 +2,7 @@ package dto
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -53,31 +54,36 @@ func (r *RegistrationIncidentRequest) Validate() error {
 	if r.Status != nil && *r.Status == "" {
 		return fmt.Errorf("status cannot be empty")
 	}
-	err := r.ValidateCoordinates()
+	err := ValidateCoordinates(r.Latitude, r.Longitude)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *RegistrationIncidentRequest) ValidateCoordinates() error {
-	if len(r.Latitude) > maxLenLatitude {
+func ValidateCoordinates(latitude, longitude string) error {
+	if len(latitude) > maxLenLatitude {
 		return fmt.Errorf("latitude incorrect")
 	}
-	if len(r.Longitude) > maxLenLongitude {
+	if len(longitude) > maxLenLongitude {
 		return fmt.Errorf("longitude incorrect")
 	}
-	latStr := strings.Replace(r.Latitude, ",", ".", 1)
-	lonStr := strings.Replace(r.Longitude, ",", ".", 1)
+	latStr := strings.Replace(latitude, ",", ".", 1)
+	lonStr := strings.Replace(longitude, ",", ".", 1)
 	lat, err := strconv.ParseFloat(latStr, 64)
 	if err != nil {
+		return fmt.Errorf("latitude incorrect parse")
+	}
+	if math.IsNaN(lat) {
 		return fmt.Errorf("latitude incorrect parse")
 	}
 	long, err := strconv.ParseFloat(lonStr, 64)
 	if err != nil {
 		return fmt.Errorf("longitude incorrect parse")
 	}
-
+	if math.IsNaN(long) {
+		return fmt.Errorf("longitude incorrect parse")
+	}
 	if lat > maxLatitude || lat < minLatitude {
 		return fmt.Errorf("latitude incorrect compare")
 	}

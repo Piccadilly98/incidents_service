@@ -38,7 +38,7 @@ func (s *Service) RegistrationIncident(ctx context.Context, req *dto.Registratio
 		return nil, err
 	}
 	s.changeLogger.Printf("INFO: Create new incident with id: %s", id)
-	return dto.CreateAdminResponse(res), nil
+	return dto.CreateAdminResponse(res, nil), nil
 }
 
 func (s *Service) FromDtoToEntitie(req *dto.RegistrationIncidentRequest) (*entities.RegistrationIncidentEntitie, error) {
@@ -119,16 +119,12 @@ func (s *Service) processingResolvedTime(status string) *time.Time {
 	return res
 }
 
-// func (s *Service) GetExistsIncidentByID(ctx context.Context, id string) (bool, error) {
-// 	return s.db.GetExistByIncidentID(ctx, id, nil)
-// }
-
 func (s *Service) GetIncidentInfoByID(ctx context.Context, id string) (*dto.IncidentAdminResponse, error) {
 	res, err := s.db.GetInfoByIncidentID(ctx, id, nil)
 	if err != nil {
 		return nil, err
 	}
-	return dto.CreateAdminResponse(res), nil
+	return dto.CreateAdminResponse(res, nil), nil
 }
 
 func (s *Service) UpdateIncidentByID(ctx context.Context, id string, req *dto.UpdateRequest) (*dto.IncidentAdminResponse, error) {
@@ -161,7 +157,7 @@ func (s *Service) UpdateIncidentByID(ctx context.Context, id string, req *dto.Up
 		return nil, err
 	}
 	s.changeLogger.Printf("INFO: incident %s updated successfully", id)
-	return dto.CreateAdminResponse(model), nil
+	return dto.CreateAdminResponse(model, nil), nil
 }
 
 func (s *Service) processingIncidentIDForUpdate(res *entities.ReadIncident, req *dto.UpdateRequest, id string) error {
@@ -268,7 +264,7 @@ func (s *Service) DeactivateIncidentByID(ctx context.Context, id string) (*dto.I
 
 	s.changeLogger.Printf("INFO: incident %s deactivated", id)
 
-	return dto.CreateAdminResponse(updated), nil
+	return dto.CreateAdminResponse(updated, nil), nil
 }
 
 func (s *Service) DeleteIncidentByID(ctx context.Context, id string) error {
@@ -304,12 +300,14 @@ func (s *Service) GetPagination(ctx context.Context, query *dto.PaginationQueryP
 	}
 	offset := 0
 	limit := 0
+	pages := 0
+	var pageNum *int
+	pages = s.GetCountPages(count)
 	if query.PageNum != nil {
-		pages := s.GetCountPages(count)
 		if *query.PageNum > pages {
 			return nil, fmt.Errorf("invalid page: max %d", pages)
 		}
-
+		pageNum = query.PageNum
 		offset = s.config.MaxRowsInPage * (*query.PageNum - 1)
 		limit = s.config.MaxRowsInPage
 	}
@@ -325,10 +323,10 @@ func (s *Service) GetPagination(ctx context.Context, query *dto.PaginationQueryP
 	res := []*dto.IncidentAdminResponse{}
 
 	for _, model := range read {
-		dto := dto.CreateAdminResponse(model)
+		dto := dto.CreateAdminResponse(model, nil)
 		res = append(res, dto)
 	}
-	return dto.ToPaginationResponse(res), nil
+	return dto.ToPaginationResponse(res, pages, count, pageNum), nil
 }
 
 func (s *Service) GetCountPages(countRows int) int {

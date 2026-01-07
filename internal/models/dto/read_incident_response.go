@@ -14,10 +14,11 @@ type IncidentBaseResponse struct {
 
 type IncidentUserResponse struct {
 	IncidentBaseResponse
-	Latitude  string `json:"latitude"`
-	Longitude string `json:"longitude"`
-	Radius    int    `json:"radius"`
-	IsActive  bool   `json:"is_active"`
+	Latitude       string   `json:"latitude"`
+	Longitude      string   `json:"longitude"`
+	Radius         int      `json:"radius"`
+	IsActive       bool     `json:"is_active"`
+	DistanceMeters *float64 `json:"distance_meters,omitempty"`
 }
 
 type IncidentAdminResponse struct {
@@ -29,23 +30,24 @@ type IncidentAdminResponse struct {
 	Status       string     `json:"status"`
 }
 
-func CreateUserResponse(entittie *entities.ReadIncident) *IncidentUserResponse {
+func CreateUserResponse(entittie *entities.ReadIncident, distanceMeters *float64) *IncidentUserResponse {
 	res := &IncidentUserResponse{
 		IncidentBaseResponse: IncidentBaseResponse{
 			ID:   entittie.Id,
 			Type: entittie.Type,
 			Name: entittie.Name,
 		},
-		Latitude:  entittie.Latitude,
-		Longitude: entittie.Longitude,
-		Radius:    entittie.Radius,
-		IsActive:  entittie.IsActive,
+		Latitude:       entittie.Latitude,
+		Longitude:      entittie.Longitude,
+		Radius:         entittie.Radius,
+		IsActive:       entittie.IsActive,
+		DistanceMeters: distanceMeters,
 	}
 	return res
 }
-func CreateAdminResponse(entittie *entities.ReadIncident) *IncidentAdminResponse {
+func CreateAdminResponse(entittie *entities.ReadIncident, distanceMeters *float64) *IncidentAdminResponse {
 	res := &IncidentAdminResponse{
-		IncidentUserResponse: *CreateUserResponse(entittie),
+		IncidentUserResponse: *CreateUserResponse(entittie, distanceMeters),
 		Description:          entittie.Description,
 		UpdatedDate:          entittie.UpdatedDate,
 		ResolvedDate:         entittie.ResolvedDate,
