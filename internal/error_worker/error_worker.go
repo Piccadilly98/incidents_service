@@ -61,7 +61,6 @@ func (ew *ErrorWorker) initErrors() {
 	ew.AddNewUserError("unable to update archived incident", http.StatusConflict)
 	ew.AddNewUserError("incident already archived", http.StatusConflict)
 	ew.AddNewUserError("invalid page_num", http.StatusBadRequest)
-	ew.AddNewUserError("EOF", http.StatusBadRequest)
 	ew.AddNewUserError("must be", http.StatusBadRequest)
 	ew.AddNewUserError("invalid page", http.StatusBadRequest)
 

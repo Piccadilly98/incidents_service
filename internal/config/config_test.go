@@ -464,7 +464,6 @@ func TestNewConfig_NoEnv(t *testing.T) {
 			if err := os.Setenv(EnvNameWebhookMethod, tc.webhookMethodValue); err != nil {
 				t.Fatalf("FAIL TO LOAD WEBHOOK_METHOD: %s\n", err.Error())
 			}
-			// tc.expectConnStr = fmt.Sprintf("user=%s port=%s password=%s dbname=%s host=%s sslmode=%s", tc.dbUserValue, tc.dbPortValue, tc.dbPasswordValue, tc.nameDbValue, tc.dbHostValue, tc.dbSslValue)
 			cfg, err := NewConfig(false)
 			if err != nil {
 				if tc.expectedError != nil {
@@ -501,6 +500,213 @@ func TestNewConfig_NoEnv(t *testing.T) {
 				if cfg.WebhookMethod != tc.expectedWebhookMethod {
 					t.Errorf("WEBHOOK METHOD: got: %s, expect: %s\n", cfg.WebhookMethod, tc.expectedWebhookMethod)
 				}
+			}
+		})
+	}
+}
+
+func TestNewConfig_AdditionalFields(t *testing.T) {
+	defer func() {
+		os.Unsetenv(EnvNameDefaultIncidentRadius)
+		os.Unsetenv(EnvNameMaxIncidentRadius)
+		os.Unsetenv(EnvMaxRowsInPage)
+		os.Unsetenv(EnvNameStatsTime)
+		os.Unsetenv(EnvNameLoggingUserError)
+
+		os.Setenv(EnvNameDbName, "testdb")
+		os.Setenv(EnvNameDbUser, "user")
+		os.Setenv(EnvNameDbPassword, "pass")
+	}()
+
+	testCases := []struct {
+		name             string
+		defaultRadiusEnv string
+		maxRadiusEnv     string
+		maxRowsEnv       string
+		statsTimeEnv     string
+		loggingUserError string
+
+		expectedDefaultRadius int
+		expectedMaxRadius     int
+		expectedMaxRows       int
+		expectedStatsTime     int
+		expectedLoggingError  bool
+
+		expectError           bool
+		expectedErrorContains string
+	}{
+		{
+			name:             "all_additional_fields_custom_valid",
+			defaultRadiusEnv: "10000",
+			maxRadiusEnv:     "100000",
+			maxRowsEnv:       "50",
+			statsTimeEnv:     "30",
+			loggingUserError: "true",
+
+			expectedDefaultRadius: 10000,
+			expectedMaxRadius:     100000,
+			expectedMaxRows:       50,
+			expectedStatsTime:     30,
+			expectedLoggingError:  true,
+			expectError:           false,
+		},
+		{
+			name:             "all_additional_fields_default",
+			defaultRadiusEnv: "",
+			maxRadiusEnv:     "",
+			maxRowsEnv:       "",
+			statsTimeEnv:     "",
+			loggingUserError: "",
+
+			expectedDefaultRadius: DefaultRadius,
+			expectedMaxRadius:     DefaultMaxRadius,
+			expectedMaxRows:       DefaultMaxRowsInPage,
+			expectedStatsTime:     DefaultStatsTime,
+			expectedLoggingError:  DefaultLoggingUserError,
+			expectError:           false,
+		},
+		{
+			name:             "logging_user_error_variants",
+			loggingUserError: "1",
+
+			expectedDefaultRadius: DefaultRadius,
+			expectedMaxRadius:     DefaultMaxRadius,
+			expectedMaxRows:       DefaultMaxRowsInPage,
+			expectedStatsTime:     DefaultStatsTime,
+			expectedLoggingError:  true,
+			expectError:           false,
+		},
+		{
+			name:                  "logging_user_error_false_variants",
+			loggingUserError:      "false",
+			expectedDefaultRadius: DefaultRadius,
+			expectedMaxRadius:     DefaultMaxRadius,
+			expectedMaxRows:       DefaultMaxRowsInPage,
+			expectedStatsTime:     DefaultStatsTime,
+			expectedLoggingError:  false,
+			expectError:           false,
+		},
+		{
+			name:             "invalid_default_radius_not_integer",
+			defaultRadiusEnv: "abc",
+
+			expectError:           true,
+			expectedErrorContains: "invalid DEFAULT_INCIDENT_RADIUS: not integer",
+		},
+		{
+			name:             "invalid_default_radius_zero_or_negative",
+			defaultRadiusEnv: "-500",
+
+			expectError:           true,
+			expectedErrorContains: "invalid DEFAULT_INCIDENT_RADIUS: <= 0",
+		},
+		{
+			name:             "default_radius_greater_than_max_radius",
+			defaultRadiusEnv: "60000",
+			maxRadiusEnv:     "50000",
+
+			expectError:           true,
+			expectedErrorContains: "invalid DEFAULT_INCIDENT_RADIUS: value > MAX_INCIDENT_RADIUS",
+		},
+		{
+			name:         "invalid_max_radius_not_integer",
+			maxRadiusEnv: "notnumber",
+
+			expectError:           true,
+			expectedErrorContains: "invalid MAX_INCIDENT_RADIUS: not integer",
+		},
+		{
+			name:         "invalid_max_radius_<0",
+			maxRadiusEnv: "-100",
+
+			expectError:           true,
+			expectedErrorContains: "invalid MAX_INCIDENT_RADIUS: <=",
+		},
+		{
+			name:       "invalid_max_rows_not_integer",
+			maxRowsEnv: "no",
+
+			expectError:           true,
+			expectedErrorContains: "invalid MAX_ROWS_IN_PAGE",
+		},
+		{
+			name:       "invalid_max_rows_negative",
+			maxRowsEnv: "-10",
+
+			expectError:           true,
+			expectedErrorContains: "invalid MAX_ROWS_IN_PAGE: <= 0",
+		},
+		{
+			name:         "invalid_stats_time_not_integer",
+			statsTimeEnv: "thirty",
+
+			expectError:           true,
+			expectedErrorContains: "invalid STATS_TIME_WINDOW_MINUTES: not integer",
+		},
+		{
+			name:         "invalid_stats_time_zero",
+			statsTimeEnv: "0",
+
+			expectError:           true,
+			expectedErrorContains: "invalid STATS_TIME_WINDOW_MINUTES: <= 0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			setEnv := func(name, value string) {
+				if value != "" {
+					os.Setenv(name, value)
+				} else {
+					os.Unsetenv(name)
+				}
+			}
+
+			setEnv(EnvNameDefaultIncidentRadius, tc.defaultRadiusEnv)
+			setEnv(EnvNameMaxIncidentRadius, tc.maxRadiusEnv)
+			setEnv(EnvMaxRowsInPage, tc.maxRowsEnv)
+			setEnv(EnvNameStatsTime, tc.statsTimeEnv)
+			setEnv(EnvNameLoggingUserError, tc.loggingUserError)
+
+			os.Setenv(EnvNameDbName, "testdb")
+			os.Setenv(EnvNameDbUser, "user")
+			os.Setenv(EnvNameDbPassword, "pass")
+
+			cfg, err := NewConfig(false)
+
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+					return
+				}
+				if !strings.Contains(err.Error(), tc.expectedErrorContains) {
+					t.Errorf("error message\ngot:  %s\nwant: %s", err.Error(), tc.expectedErrorContains)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if cfg == nil {
+				t.Fatal("cfg is nil")
+			}
+
+			if cfg.DefaultRadius != tc.expectedDefaultRadius {
+				t.Errorf("DefaultRadius: got %d, want %d", cfg.DefaultRadius, tc.expectedDefaultRadius)
+			}
+			if cfg.MaxRadius != tc.expectedMaxRadius {
+				t.Errorf("MaxRadius: got %d, want %d", cfg.MaxRadius, tc.expectedMaxRadius)
+			}
+			if cfg.MaxRowsInPage != tc.expectedMaxRows {
+				t.Errorf("MaxRowsInPage: got %d, want %d", cfg.MaxRowsInPage, tc.expectedMaxRows)
+			}
+			if cfg.StatsTimeWindow != tc.expectedStatsTime {
+				t.Errorf("StatsTimeWindow: got %d, want %d", cfg.StatsTimeWindow, tc.expectedStatsTime)
+			}
+			if cfg.loggingUserError != tc.expectedLoggingError {
+				t.Errorf("loggingUserError: got %v, want %v", cfg.loggingUserError, tc.expectedLoggingError)
 			}
 		})
 	}

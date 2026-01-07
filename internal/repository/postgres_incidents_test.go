@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -180,9 +181,147 @@ func TestPostgresRepository_getQueryAndArgsForUpdate(t *testing.T) {
 	}
 }
 
-func getPtrTime(t time.Time) *time.Time {
-	return &t
+func TestGetQueryAndArgsForPagination(t *testing.T) {
+	testCases := []struct {
+		name      string
+		input     *entities.PaginationIncidents
+		wantQuery string
+		wantArgs  []any
+	}{
+		{
+			name:      "empty_filters",
+			input:     &entities.PaginationIncidents{},
+			wantQuery: "SELECT * FROM incidents;",
+			wantArgs:  []any{},
+		},
+		{
+			name: "only_limit_and_offset",
+			input: &entities.PaginationIncidents{
+				Limit:  10,
+				Offset: 20,
+			},
+			wantQuery: "SELECT * FROM incidents LIMIT $1 OFFSET $2;",
+			wantArgs:  []any{10, 20},
+		},
+		{
+			name: "only_id",
+			input: &entities.PaginationIncidents{
+				ID: "123",
+			},
+			wantQuery: "SELECT * FROM incidents WHERE id=$1;",
+			wantArgs:  []any{"123"},
+		},
+		{
+			name: "only_status",
+			input: &entities.PaginationIncidents{
+				Status: "active",
+			},
+			wantQuery: "SELECT * FROM incidents WHERE status=$1;",
+			wantArgs:  []any{"active"},
+		},
+		{
+			name: "status_and_type",
+			input: &entities.PaginationIncidents{
+				Status: "active",
+				Type:   "fire",
+			},
+			wantQuery: "SELECT * FROM incidents WHERE status=$1 AND type=$2;",
+			wantArgs:  []any{"active", "fire"},
+		},
+		{
+			name: "type_first_then_status",
+			input: &entities.PaginationIncidents{
+				Type:   "flood",
+				Status: "resolved",
+			},
+			wantQuery: "SELECT * FROM incidents WHERE status=$1 AND type=$2;",
+			wantArgs:  []any{"resolved", "flood"},
+		},
+		{
+			name: "skip_id_but_use_status",
+			input: &entities.PaginationIncidents{
+				ID:     "",
+				Status: "pending",
+			},
+			wantQuery: "SELECT * FROM incidents WHERE status=$1;",
+			wantArgs:  []any{"pending"},
+		},
+		{
+			name: "id_empty_but_type_and_name",
+			input: &entities.PaginationIncidents{
+				ID:   "",
+				Type: "accident",
+				Name: "Big crash",
+			},
+			wantQuery: "SELECT * FROM incidents WHERE type=$1 AND name=$2;",
+			wantArgs:  []any{"accident", "Big crash"},
+		},
+		{
+			name: "radius_present",
+			input: &entities.PaginationIncidents{
+				Radius: func(i int) *int { return &i }(5000),
+			},
+			wantQuery: "SELECT * FROM incidents WHERE radius=$1;",
+			wantArgs:  []any{5000},
+		},
+		{
+			name: "radius_nil_not_included",
+			input: &entities.PaginationIncidents{
+				Radius: nil,
+			},
+			wantQuery: "SELECT * FROM incidents;",
+			wantArgs:  []any{},
+		},
+		{
+			name: "full_combination",
+			input: &entities.PaginationIncidents{
+				ID:     "abc-123",
+				Status: "active",
+				Type:   "theft",
+				Name:   "Stolen bike",
+				Radius: func(i int) *int { return &i }(3000),
+				Limit:  25,
+				Offset: 50,
+			},
+			wantQuery: "SELECT * FROM incidents WHERE id=$1 AND status=$2 AND type=$3 AND name=$4 AND radius=$5 LIMIT $6 OFFSET $7;",
+			wantArgs:  []any{"abc-123", "active", "theft", "Stolen bike", 3000, 25, 50},
+		},
+		{
+			name: "limit_zero_not_included",
+			input: &entities.PaginationIncidents{
+				Status: "done",
+				Limit:  0,
+				Offset: 0,
+			},
+			wantQuery: "SELECT * FROM incidents WHERE status=$1;",
+			wantArgs:  []any{"done"},
+		},
+		{
+			name: "only name",
+			input: &entities.PaginationIncidents{
+				Name: "new",
+			},
+			wantQuery: "SELECT * FROM incidents WHERE name=$1;",
+			wantArgs:  []any{"new"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pr := &PostgresRepository{}
+			gotQuery, gotArgs := pr.getQueryAndArgsForPagination(tc.input)
+
+			if gotQuery != tc.wantQuery {
+				t.Errorf("\nQuery mismatch:\nGOT:  %s\nWANT: %s", gotQuery, tc.wantQuery)
+			}
+
+			if !reflect.DeepEqual(gotArgs, tc.wantArgs) {
+				t.Errorf("\nArgs mismatch:\nGOT:  %v\nWANT: %v", gotArgs, tc.wantArgs)
+			}
+		})
+	}
 }
+
 func getIntPtr(i int) *int {
 	return &i
 }

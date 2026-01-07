@@ -24,6 +24,9 @@ const (
 	EnvNameMaxIncidentRadius     = "MAX_INCIDENT_RADIUS"
 	EnvMaxRowsInPage             = "MAX_ROWS_IN_PAGE"
 
+	EnvNameStatsTime        = "STATS_TIME_WINDOW_MINUTES"
+	EnvNameLoggingUserError = "LOGGING_USER_ERROR"
+
 	EnvNameDbName     = "DB_NAME"
 	EnvNameDbSSlMode  = "DB_SSLMODE"
 	EnvNameDbPort     = "DB_PORT"
@@ -43,17 +46,22 @@ const (
 	DefaultRadius        = 5000
 	DefaultMaxRadius     = 50000
 	DefaultMaxRowsInPage = 10
+
+	DefaultStatsTime        = 10
+	DefaultLoggingUserError = false
 )
 
 type Config struct {
-	ConnectionStr string
-	WebhookURL    string
-	WebhookMethod string
-	ServerAddr    string
-	ServerPort    string
-	DefaultRadius int
-	MaxRadius     int
-	MaxRowsInPage int
+	ConnectionStr    string
+	WebhookURL       string
+	WebhookMethod    string
+	ServerAddr       string
+	ServerPort       string
+	DefaultRadius    int
+	MaxRadius        int
+	MaxRowsInPage    int
+	StatsTimeWindow  int
+	loggingUserError bool
 }
 
 func NewConfig(envCfg bool) (*Config, error) {
@@ -161,16 +169,35 @@ func NewConfig(envCfg bool) (*Config, error) {
 	} else {
 		log.Printf("invalid MAX_ROWS_IN_PAGE on env: <%s>, change to defaul: %d\n", maxRowsPageStr, maxRowsPage)
 	}
+	loggingUserError := getBoolEnv(EnvNameLoggingUserError, DefaultLoggingUserError)
+
+	statsTimeWindow := DefaultStatsTime
+	statsTimeWindowStr := os.Getenv(EnvNameStatsTime)
+	if statsTimeWindowStr != "" {
+		res, err := strconv.Atoi(statsTimeWindowStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: not integer\n", EnvNameStatsTime)
+		}
+		if res <= 0 {
+			return nil, fmt.Errorf("invalid %s: <= 0\n", EnvNameStatsTime)
+		}
+
+		statsTimeWindow = res
+	} else {
+		log.Printf("invalid STATS_TIME_WINDOW_MINUTES on env: <%s>, change to defaul: %d\n", statsTimeWindowStr, statsTimeWindow)
+	}
 
 	conf := &Config{
-		ConnectionStr: fmt.Sprintf("user=%s port=%s password=%s dbname=%s host=%s sslmode=%s", dbUser, dbPort, dbPassword, nameDb, dbHost, dbSsl),
-		ServerAddr:    serverAddr,
-		ServerPort:    servPort,
-		WebhookURL:    webhookURL,
-		WebhookMethod: webhookMethod,
-		DefaultRadius: defaultRadius,
-		MaxRadius:     maxRadius,
-		MaxRowsInPage: maxRowsPage,
+		ConnectionStr:    fmt.Sprintf("user=%s port=%s password=%s dbname=%s host=%s sslmode=%s", dbUser, dbPort, dbPassword, nameDb, dbHost, dbSsl),
+		ServerAddr:       serverAddr,
+		ServerPort:       servPort,
+		WebhookURL:       webhookURL,
+		WebhookMethod:    webhookMethod,
+		DefaultRadius:    defaultRadius,
+		MaxRadius:        maxRadius,
+		MaxRowsInPage:    maxRowsPage,
+		loggingUserError: loggingUserError,
+		StatsTimeWindow:  statsTimeWindow,
 	}
 	return conf, nil
 }
@@ -212,4 +239,20 @@ func validationPort(key, defaultValue string) (string, error) {
 	}
 
 	return port, nil
+}
+
+func getBoolEnv(key string, defaultValue bool) bool {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultValue
+	}
+
+	switch strings.ToLower(val) {
+	case "true", "t", "1", "yes", "y":
+		return true
+	case "false", "f", "0", "no", "n":
+		return false
+	default:
+		return defaultValue
+	}
 }
