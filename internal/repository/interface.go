@@ -20,6 +20,9 @@ type DbReposytory interface {
 	DeleteIncidentByID(ctx context.Context, id string, exec Executor) error
 	GetCountRows(ctx context.Context, exec Executor) (int, error)
 	GetPaginationIncidentsInfo(ctx context.Context, entit *entities.PaginationIncidents, exec Executor) ([]*entities.ReadIncident, error)
+	RegistrationCheck(ctx context.Context, userID, latitude, longitude string, exec Executor) (string, error)
+	GetDetectedIncidents(ctx context.Context, longitude, latitude string, exec Executor) ([]*entities.DistanceCheck, error)
+	UpdateCheckByID(ctx context.Context, dangersIds []string, checkId string, isDanger bool, exec Executor) error
 }
 
 type CacheReposytory interface {

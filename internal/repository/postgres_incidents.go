@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Piccadilly98/incidents_service/internal/models/entities"
+	"github.com/lib/pq"
 )
 
 // FOR UPDATE !!
@@ -308,4 +309,111 @@ func (pr *PostgresRepository) getQueryAndArgsForPagination(entit *entities.Pagin
 	}
 	query += ";"
 	return query, args
+}
+
+func (pr *PostgresRepository) RegistrationCheck(ctx context.Context, userID, latitude, longitude string, exec Executor) (string, error) {
+	if exec == nil {
+		exec = pr.db
+	}
+	var checkId string
+
+	err := exec.QueryRowContext(ctx,
+		`INSERT INTO checks(user_id, latitude, longitude)
+		VALUES($1, $2, $3)
+		RETURNING id;
+		`, userID, latitude, longitude).Scan(&checkId)
+	if err != nil {
+		return "", err
+	}
+
+	return checkId, nil
+}
+
+func (pr *PostgresRepository) GetDetectedIncidents(ctx context.Context, longitude, latitude string, exec Executor) ([]*entities.DistanceCheck, error) {
+	if exec == nil {
+		exec = pr.db
+	}
+
+	rows, err := exec.QueryContext(ctx,
+		`SELECT 
+		id, 
+		name, 
+		type, 
+		latitude, 
+		longitude, 
+		coordinates, 
+		description, 
+		radius, 
+		is_active, 
+		status, 
+		created_date, 
+		updated_date, 
+		resolved_date,
+		ST_Distance(
+			coordinates,
+			ST_MakePoint($1, $2)::geography
+		)AS distance
+		FROM incidents
+	WHERE is_active = true 
+	AND ST_DWithin(
+		coordinates,
+		ST_MakePoint($1, $2)::geography,
+		radius
+		)
+	ORDER BY distance;;`, longitude, latitude,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	incidents := []*entities.DistanceCheck{}
+
+	for rows.Next() {
+		defer rows.Close()
+		res := &entities.DistanceCheck{}
+
+		err := rows.Scan(
+			&res.Incident.Id,
+			&res.Incident.Name,
+			&res.Incident.Type,
+			&res.Incident.Latitude,
+			&res.Incident.Longitude,
+			&res.Incident.Coordinates,
+			&res.Incident.Description,
+			&res.Incident.Radius,
+			&res.Incident.IsActive,
+			&res.Incident.Status,
+			&res.Incident.CreatedDate,
+			&res.Incident.UpdatedDate,
+			&res.Incident.ResolvedDate,
+			&res.Distance,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		incidents = append(incidents, res)
+	}
+
+	return incidents, nil
+}
+
+func (pr *PostgresRepository) UpdateCheckByID(ctx context.Context, dangersIds []string, checkId string, isDanger bool, exec Executor) error {
+	if exec == nil {
+		exec = pr.db
+	}
+	if dangersIds == nil {
+		dangersIds = []string{}
+	}
+	_, err := exec.ExecContext(ctx,
+		`UPDATE checks
+		SET is_danger = $1, detected_incident_ids = $2 
+		WHERE id = $3;`,
+		isDanger,
+		pq.Array(dangersIds),
+		checkId,
+	)
+	return err
 }

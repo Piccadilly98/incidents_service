@@ -10,7 +10,7 @@ type LocationCheckRequest struct {
 
 func (l *LocationCheckRequest) Validate() error {
 	if l.UserID == "" {
-		return fmt.Errorf("user_id cannot be enpty")
+		return fmt.Errorf("user_id cannot be empty")
 	}
 	return ValidateCoordinates(l.Latitude, l.Longitude)
 }

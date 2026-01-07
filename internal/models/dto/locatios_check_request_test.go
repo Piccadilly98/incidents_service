@@ -27,7 +27,7 @@ func TestLocationCheckRequest_Validate(t *testing.T) {
 				Latitude:  "60.0",
 				Longitude: "30.0",
 			},
-			wantedErr: fmt.Errorf("user_id cannot be enpty"),
+			wantedErr: fmt.Errorf("user_id cannot be empty"),
 		},
 		{
 			name: "invalid_latitude_too_high",

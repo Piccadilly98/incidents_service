@@ -23,6 +23,7 @@ type IncidentUserResponse struct {
 
 type IncidentAdminResponse struct {
 	IncidentUserResponse
+	Coordinates  string     `json:"coordinates"`
 	Description  *string    `json:"description"`
 	UpdatedDate  *time.Time `json:"updated_date"`
 	ResolvedDate *time.Time `json:"resolved_date"`
@@ -53,6 +54,7 @@ func CreateAdminResponse(entittie *entities.ReadIncident, distanceMeters *float6
 		ResolvedDate:         entittie.ResolvedDate,
 		CreatedDate:          entittie.CreatedDate,
 		Status:               entittie.Status,
+		Coordinates:          entittie.Coordinates,
 	}
 	return res
 }

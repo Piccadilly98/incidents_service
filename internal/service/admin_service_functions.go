@@ -354,3 +354,61 @@ func (s *Service) toPaginationEntity(query *dto.PaginationQueryParams, offset, l
 	}
 	return res
 }
+
+func (s *Service) LocationCheck(ctx context.Context, req *dto.LocationCheckRequest) (*dto.LocationCheckResponse, error) {
+	err := req.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	checkId, err := s.db.RegistrationCheck(ctx, req.UserID, req.Latitude, req.Longitude, tx)
+	if err != nil {
+		return nil, err
+	}
+	if checkId == "" {
+		return nil, fmt.Errorf("empty id before db method")
+	}
+	s.changeLogger.Printf("INFO: Create new check with id: %s", checkId)
+	destChecks, err := s.db.GetDetectedIncidents(ctx, req.Longitude, req.Latitude, tx)
+	if err != nil {
+		return nil, err
+	}
+	isDanger := false
+	if len(destChecks) > 0 {
+		isDanger = true
+	}
+	dangersIds := []string{}
+	for _, check := range destChecks {
+		dangersIds = append(dangersIds, check.Incident.Id)
+	}
+
+	err = s.db.UpdateCheckByID(ctx, dangersIds, checkId, isDanger, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	res := &dto.LocationCheckResponse{
+		ID:        checkId,
+		UserID:    req.UserID,
+		Latitude:  req.Latitude,
+		Longitude: req.Longitude,
+		IsDanger:  isDanger,
+	}
+	userIncidents := []*dto.IncidentUserResponse{}
+	for _, incident := range destChecks {
+		userIncidents = append(userIncidents, dto.CreateUserResponse(&incident.Incident, &incident.Distance))
+	}
+	res.DetectedIncidentsID = userIncidents
+
+	return res, nil
+}
