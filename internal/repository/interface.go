@@ -24,12 +24,15 @@ type DbReposytory interface {
 	RegistrationCheck(ctx context.Context, userID, latitude, longitude string, exec Executor) (string, error)
 	GetDetectedIncidents(ctx context.Context, longitude, latitude string, exec Executor) ([]*entities.DistanceCheck, error)
 	UpdateCheckByID(ctx context.Context, dangersIds []string, checkId string, isDanger bool, exec Executor) error
+	GetCountUniqueUsers(ctx context.Context, exec Executor) (int, error)
+	GetStaticsForIncidentsWithTimeWindow(ctx context.Context, exec Executor, timeWindow int) ([]*entities.IncidentStat, error)
 }
 
 type CacheReposytory interface {
 	SetActiveIncident(ctx context.Context, data *entities.ReadIncident) error
 	GetActiveIncident(ctx context.Context, id string) (*entities.ReadIncident, error)
 	DeleteActiveIncident(ctx context.Context, id string) error
+	PingWithCtx(ctx context.Context) error
 }
 
 type Executor interface {
@@ -42,4 +45,5 @@ type CacheQueue interface {
 	PopFromQueue(ctx context.Context) (*dto.WebhookTask, bool, error)
 	AddToQueue(read *dto.WebhookTask, ctx context.Context) error
 	PushTask(task *dto.WebhookTask, ctx context.Context) error
+	PingWithCtx(ctx context.Context) error
 }

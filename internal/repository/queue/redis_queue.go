@@ -1,4 +1,4 @@
-package repository
+package queue
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Piccadilly98/incidents_service/internal/config"
 	"github.com/Piccadilly98/incidents_service/internal/models/dto"
 	"github.com/redis/go-redis/v9"
 )
@@ -20,14 +19,10 @@ type RedisQueue struct {
 	durationForPop time.Duration
 }
 
-func NewRedisQueue(cfg *config.Config, ctx context.Context, durationForPop int64) (*RedisQueue, error) {
+func NewRedisQueue(client *redis.Client, ctx context.Context, durationForPop int64) (*RedisQueue, error) {
 	if durationForPop <= 0 {
 		return nil, fmt.Errorf("duration cannot be <= 0")
 	}
-	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisAddr,
-		Password: cfg.RedisPassword,
-	})
 	err := client.Ping(ctx).Err()
 	if err != nil {
 		return nil, err
@@ -75,4 +70,12 @@ func (rq *RedisQueue) PushTask(task *dto.WebhookTask, ctx context.Context) error
 	}
 
 	return rq.client.RPush(ctx, KeyQueue, b).Err()
+}
+
+func (rq *RedisQueue) PingWithCtx(ctx context.Context) error {
+	return rq.client.Ping(ctx).Err()
+}
+
+func (rq *RedisQueue) Name() string {
+	return "RedisQueue"
 }

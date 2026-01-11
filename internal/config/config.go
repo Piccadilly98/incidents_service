@@ -18,6 +18,7 @@ const (
 
 	EnvNameWebHookURL            = "WEBHOOK_URL"
 	EnvNameWebhookMethod         = "WEBHOOK_METHOD"
+	EnvNameWebhookMaxReTry       = "WEBHOOK_MAX_RETRY"
 	EnvNameServerAddr            = "SERVER_ADDR"
 	EnvNameServerPort            = "SERVER_PORT"
 	EnvNameDefaultIncidentRadius = "DEFAULT_INCIDENT_RADIUS"
@@ -39,20 +40,22 @@ const (
 )
 
 const (
-	DefaultDbHost        = "localhost"
-	DefaultDbPort        = "5432"
-	DefaultDbSSLMode     = "disable"
-	DefaultServerAddress = "localhost"
-	DefaultServerPort    = "8080"
-	DefaultWebhookURL    = "http://localhost:9090"
-	DefaultWebhookMethod = "POST"
-	DefaultRedisAddr     = "localhost:6379"
-	DefaultRedisTTL      = 300
-	DefaultRadius        = 5000
-	DefaultMaxRadius     = 50000
-	DefaultMaxRowsInPage = 10
+	DefaultDbHost          = "localhost"
+	DefaultDbPort          = "5432"
+	DefaultDbSSLMode       = "disable"
+	DefaultServerAddress   = "localhost"
+	DefaultServerPort      = "8080"
+	DefaultWebhookURL      = "http://localhost:9090"
+	DefaultWebhookMethod   = "POST"
+	DefaultRedisAddr       = "localhost:6379"
+	DefaultRedisTTL        = 300
+	DefaultRadius          = 5000
+	DefaultMaxRadius       = 50000
+	DefaultMaxRowsInPage   = 10
+	DefaultWebhookMaxReTry = 3
 
-	DefaultStatsTime        = 10
+	DefaultStatsTime        = 100
+	MaxStatsTime            = 999_999_999
 	DefaultLoggingUserError = false
 )
 
@@ -70,6 +73,7 @@ type Config struct {
 	RedisAddr        string
 	RedisPassword    string
 	RedisTTL         int
+	WebhookMaxReTry  int
 }
 
 func NewConfig(envCfg bool) (*Config, error) {
@@ -122,6 +126,7 @@ func NewConfig(envCfg bool) (*Config, error) {
 	}
 	webhookURL := os.Getenv(EnvNameWebHookURL)
 	if webhookURL == "" {
+		log.Printf("invalid WEBHOOK_URL on env: <%s>, change to default: %s\n", webhookURL, DefaultWebhookURL)
 		webhookURL = DefaultWebhookURL
 	}
 	webhookMethod := os.Getenv(EnvNameWebhookMethod)
@@ -189,7 +194,9 @@ func NewConfig(envCfg bool) (*Config, error) {
 		if res <= 0 {
 			return nil, fmt.Errorf("invalid %s: <= 0\n", EnvNameStatsTime)
 		}
-
+		if res > MaxStatsTime {
+			return nil, fmt.Errorf("invalid %s: > %d\n", EnvNameStatsTime, MaxStatsTime)
+		}
 		statsTimeWindow = res
 	} else {
 		log.Printf("invalid STATS_TIME_WINDOW_MINUTES on env: <%s>, change to default: %d\n", statsTimeWindowStr, statsTimeWindow)
@@ -217,6 +224,23 @@ func NewConfig(envCfg bool) (*Config, error) {
 		log.Printf("invalid REDIS_TTL on env: <%s>, change to default: %d\n", redisTTLStr, DefaultRedisTTL)
 	}
 
+	webhookMaxReTry := DefaultWebhookMaxReTry
+
+	webhookMaxReTryStr := os.Getenv(EnvNameWebhookMaxReTry)
+	if webhookMaxReTryStr != "" {
+		res, err := strconv.Atoi(webhookMaxReTryStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: not integer\n", EnvNameWebhookMaxReTry)
+		}
+		if res <= 0 {
+			return nil, fmt.Errorf("invalid %s: <= 0\n", EnvNameWebhookMaxReTry)
+		}
+
+		webhookMaxReTry = res
+	} else {
+		log.Printf("invalid WEBHOOK_MAX_RETRY on env: <%s>, change to default: %d\n", webhookMaxReTryStr, DefaultWebhookMaxReTry)
+	}
+
 	conf := &Config{
 		ConnectionStr:    fmt.Sprintf("user=%s port=%s password=%s dbname=%s host=%s sslmode=%s", dbUser, dbPort, dbPassword, nameDb, dbHost, dbSsl),
 		ServerAddr:       serverAddr,
@@ -231,6 +255,7 @@ func NewConfig(envCfg bool) (*Config, error) {
 		RedisAddr:        redisAddr,
 		RedisPassword:    redisPassword,
 		RedisTTL:         redisTTL,
+		WebhookMaxReTry:  webhookMaxReTry,
 	}
 	return conf, nil
 }

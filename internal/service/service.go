@@ -487,3 +487,27 @@ func (s *Service) LocationCheck(ctx context.Context, req *dto.LocationCheckReque
 	}
 	return res, nil
 }
+
+func (s *Service) GetChecksStatistics(ctx context.Context) (*dto.IncidentsStatResponse, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	count, err := s.db.GetCountUniqueUsers(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	fromTime := time.Now().UTC()
+	statistics, err := s.db.GetStaticsForIncidentsWithTimeWindow(ctx, tx, s.config.StatsTimeWindow)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return dto.ToIncidentsStatResponse(statistics, s.config.StatsTimeWindow, fromTime, count), nil
+
+}

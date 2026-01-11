@@ -1,4 +1,4 @@
-package repository
+package db
 
 import (
 	"context"
@@ -54,4 +54,8 @@ func (pr *PostgresRepository) PingWithCtx(ctx context.Context) error {
 
 func (pr *PostgresRepository) Begin() (*sql.Tx, error) {
 	return pr.db.Begin()
+}
+
+func (pr *PostgresRepository) Name() string {
+	return "PostgreSQL"
 }

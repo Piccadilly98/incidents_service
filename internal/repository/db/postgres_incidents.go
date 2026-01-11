@@ -1,16 +1,17 @@
-package repository
+package db
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/Piccadilly98/incidents_service/internal/models/entities"
+	"github.com/Piccadilly98/incidents_service/internal/repository"
 	"github.com/lib/pq"
 )
 
 // FOR UPDATE !!
 
-func (pr *PostgresRepository) RegistrationIncident(ctx context.Context, entit *entities.RegistrationIncidentEntitie, exec Executor) (string, error) {
+func (pr *PostgresRepository) RegistrationIncident(ctx context.Context, entit *entities.RegistrationIncidentEntitie, exec repository.Executor) (string, error) {
 	var id string
 	if exec == nil {
 		exec = pr.db
@@ -36,7 +37,7 @@ func (pr *PostgresRepository) RegistrationIncident(ctx context.Context, entit *e
 	return id, nil
 }
 
-func (pr *PostgresRepository) GetInfoByIncidentID(ctx context.Context, id string, exec Executor) (*entities.ReadIncident, error) {
+func (pr *PostgresRepository) GetInfoByIncidentID(ctx context.Context, id string, exec repository.Executor) (*entities.ReadIncident, error) {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -50,7 +51,7 @@ func (pr *PostgresRepository) GetInfoByIncidentID(ctx context.Context, id string
 	return res, nil
 }
 
-func (pr *PostgresRepository) GetExistByIncidentID(ctx context.Context, id string, exec Executor) (bool, error) {
+func (pr *PostgresRepository) GetExistByIncidentID(ctx context.Context, id string, exec repository.Executor) (bool, error) {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -66,7 +67,7 @@ func (pr *PostgresRepository) GetExistByIncidentID(ctx context.Context, id strin
 	return exists, nil
 }
 
-func (pr *PostgresRepository) UpdateIncidentByID(ctx context.Context, id string, entit *entities.UpdateIncident, exec Executor) (*entities.ReadIncident, error) {
+func (pr *PostgresRepository) UpdateIncidentByID(ctx context.Context, id string, entit *entities.UpdateIncident, exec repository.Executor) (*entities.ReadIncident, error) {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -181,7 +182,7 @@ func (pr *PostgresRepository) getQueryAndArgsForUpdate(entit *entities.UpdateInc
 	return query, args
 }
 
-func (pr *PostgresRepository) DeleteIncidentByID(ctx context.Context, id string, exec Executor) error {
+func (pr *PostgresRepository) DeleteIncidentByID(ctx context.Context, id string, exec repository.Executor) error {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -190,7 +191,7 @@ func (pr *PostgresRepository) DeleteIncidentByID(ctx context.Context, id string,
 	return err
 }
 
-func (pr *PostgresRepository) GetCountRows(ctx context.Context, exec Executor) (int, error) {
+func (pr *PostgresRepository) GetCountRows(ctx context.Context, exec repository.Executor) (int, error) {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -202,7 +203,7 @@ func (pr *PostgresRepository) GetCountRows(ctx context.Context, exec Executor) (
 	return result, nil
 }
 
-func (pr *PostgresRepository) GetPaginationIncidentsInfo(ctx context.Context, entit *entities.PaginationIncidents, exec Executor) ([]*entities.ReadIncident, error) {
+func (pr *PostgresRepository) GetPaginationIncidentsInfo(ctx context.Context, entit *entities.PaginationIncidents, exec repository.Executor) ([]*entities.ReadIncident, error) {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -311,7 +312,7 @@ func (pr *PostgresRepository) getQueryAndArgsForPagination(entit *entities.Pagin
 	return query, args
 }
 
-func (pr *PostgresRepository) RegistrationCheck(ctx context.Context, userID, latitude, longitude string, exec Executor) (string, error) {
+func (pr *PostgresRepository) RegistrationCheck(ctx context.Context, userID, latitude, longitude string, exec repository.Executor) (string, error) {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -329,7 +330,7 @@ func (pr *PostgresRepository) RegistrationCheck(ctx context.Context, userID, lat
 	return checkId, nil
 }
 
-func (pr *PostgresRepository) GetDetectedIncidents(ctx context.Context, longitude, latitude string, exec Executor) ([]*entities.DistanceCheck, error) {
+func (pr *PostgresRepository) GetDetectedIncidents(ctx context.Context, longitude, latitude string, exec repository.Executor) ([]*entities.DistanceCheck, error) {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -360,7 +361,7 @@ func (pr *PostgresRepository) GetDetectedIncidents(ctx context.Context, longitud
 		ST_MakePoint($1, $2)::geography,
 		radius
 		)
-	ORDER BY distance;;`, longitude, latitude,
+	ORDER BY distance;`, longitude, latitude,
 	)
 
 	if err != nil {
@@ -368,9 +369,8 @@ func (pr *PostgresRepository) GetDetectedIncidents(ctx context.Context, longitud
 	}
 
 	incidents := []*entities.DistanceCheck{}
-
+	defer rows.Close()
 	for rows.Next() {
-		defer rows.Close()
 		res := &entities.DistanceCheck{}
 
 		err := rows.Scan(
@@ -400,7 +400,7 @@ func (pr *PostgresRepository) GetDetectedIncidents(ctx context.Context, longitud
 	return incidents, nil
 }
 
-func (pr *PostgresRepository) UpdateCheckByID(ctx context.Context, dangersIds []string, checkId string, isDanger bool, exec Executor) error {
+func (pr *PostgresRepository) UpdateCheckByID(ctx context.Context, dangersIds []string, checkId string, isDanger bool, exec repository.Executor) error {
 	if exec == nil {
 		exec = pr.db
 	}
@@ -416,4 +416,54 @@ func (pr *PostgresRepository) UpdateCheckByID(ctx context.Context, dangersIds []
 		checkId,
 	)
 	return err
+}
+
+func (pr *PostgresRepository) GetCountUniqueUsers(ctx context.Context, exec repository.Executor) (int, error) {
+	if exec == nil {
+		exec = pr.db
+	}
+	var result int
+	err := exec.QueryRowContext(ctx,
+		`SELECT COUNT(DISTINCT user_id) FROM checks;
+		`).Scan(&result)
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
+}
+
+func (pr *PostgresRepository) GetStaticsForIncidentsWithTimeWindow(ctx context.Context, exec repository.Executor, timeWindow int) ([]*entities.IncidentStat, error) {
+	if exec == nil {
+		exec = pr.db
+	}
+	rows, err := exec.QueryContext(ctx,
+		`SELECT 
+    i.id,
+    i.name,
+    i.type,
+	COUNT(DISTINCT c.user_id)
+	FROM incidents i, checks c
+	WHERE ST_DWithin(c.coordinates, i.coordinates, i.radius)
+	AND i.is_active = true 
+	AND c.created_date >= NOW() - ($1 * INTERVAL '1 minutes')
+	AND c.is_danger = true
+	GROUP BY i.id, i.name, i.type
+	ORDER BY count DESC;`, timeWindow)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []*entities.IncidentStat{}
+	defer rows.Close()
+	for rows.Next() {
+		stat := &entities.IncidentStat{}
+
+		err := rows.Scan(&stat.ID, &stat.Name, &stat.Type, &stat.UserCount)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, stat)
+	}
+
+	return result, nil
 }

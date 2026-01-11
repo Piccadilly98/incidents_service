@@ -650,6 +650,13 @@ func TestNewConfig_AdditionalFields(t *testing.T) {
 			expectError:           true,
 			expectedErrorContains: "invalid STATS_TIME_WINDOW_MINUTES: <= 0",
 		},
+		{
+			name:         "invalid_stats_time_>max",
+			statsTimeEnv: "9999999999",
+
+			expectError:           true,
+			expectedErrorContains: "invalid STATS_TIME_WINDOW_MINUTES: >",
+		},
 	}
 
 	for _, tc := range testCases {

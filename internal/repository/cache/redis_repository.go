@@ -1,4 +1,4 @@
-package repository
+package cache
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Piccadilly98/incidents_service/internal/config"
 	"github.com/Piccadilly98/incidents_service/internal/models/entities"
 	"github.com/redis/go-redis/v9"
 )
@@ -21,12 +20,7 @@ type RedisCache struct {
 	ttlInSecond time.Duration
 }
 
-func NewRedisCache(cfg *config.Config, ctx context.Context, ttlInSecond int) (*RedisCache, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisAddr,
-		Password: cfg.RedisPassword,
-	})
-
+func NewRedisCache(client *redis.Client, ctx context.Context, ttlInSecond int) (*RedisCache, error) {
 	err := client.Ping(ctx).Err()
 	if err != nil {
 		return nil, err
@@ -77,4 +71,12 @@ func (rc *RedisCache) DeleteActiveIncident(ctx context.Context, id string) error
 	}
 
 	return nil
+}
+
+func (rc *RedisCache) PingWithCtx(ctx context.Context) error {
+	return rc.client.Ping(ctx).Err()
+}
+
+func (rc *RedisCache) Name() string {
+	return "RedisCache"
 }
