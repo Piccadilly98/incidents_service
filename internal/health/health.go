@@ -2,8 +2,10 @@ package health
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/Piccadilly98/incidents_service/internal/models/dto"
 )
@@ -29,9 +31,15 @@ func (hc *HealthChecker) Check(ctx context.Context) (*dto.HealthCheckResponse, i
 			res.Errors = append(res.Errors, "health check aborted: "+ctx.Err().Error())
 			return res, http.StatusServiceUnavailable
 		}
-		err := check.PingWithCtx(ctx)
+		ctxTime, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		err := check.PingWithCtx(ctxTime)
+		cancel()
 		if err != nil {
-			res.Errors = append(res.Errors, fmt.Sprintf("%s: %s", check.Name(), err.Error()))
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				res.Errors = append(res.Errors, fmt.Sprintf("%s: ping timeout", check.Name()))
+			} else {
+				res.Errors = append(res.Errors, fmt.Sprintf("%s: %v", check.Name(), err))
+			}
 		}
 	}
 	if len(res.Errors) > 0 {
