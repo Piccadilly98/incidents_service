@@ -23,6 +23,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	DefaultServerAddr = "localhost"
+	DefaultServerPort = "8080"
+)
+
 func ServerStart() error {
 	cfg, err := config.NewConfig(true)
 	if err != nil {
@@ -72,7 +77,7 @@ func ServerStart() error {
 	if err != nil {
 		return err
 	}
-	pagination, err := handlers.NewGetPaginationHadler(service, ew)
+	pagination, err := handlers.NewPaginationHandler(service, ew)
 	if err != nil {
 		return err
 	}
@@ -110,6 +115,6 @@ func ServerStart() error {
 			r.Get("/incidents", pagination.Handler)
 		})
 	})
-	err = http.ListenAndServe(fmt.Sprintf("%s:%s", cfg.ServerAddr, cfg.ServerPort), r)
+	err = http.ListenAndServe(fmt.Sprintf("%s:%s", DefaultServerAddr, DefaultServerPort), r)
 	return err
 }

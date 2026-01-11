@@ -11,13 +11,13 @@ import (
 	"github.com/Piccadilly98/incidents_service/internal/service"
 )
 
-type GetPaginationHandler struct {
+type PaginationHandler struct {
 	serv *service.Service
 	ew   *error_worker.ErrorWorker
 }
 
-func NewGetPaginationHadler(serv *service.Service,
-	ew *error_worker.ErrorWorker) (*GetPaginationHandler, error) {
+func NewPaginationHandler(serv *service.Service,
+	ew *error_worker.ErrorWorker) (*PaginationHandler, error) {
 	if serv == nil {
 		return nil, fmt.Errorf("service cannot be nil")
 	}
@@ -25,13 +25,13 @@ func NewGetPaginationHadler(serv *service.Service,
 		return nil, fmt.Errorf("error worker cannot be nil")
 	}
 
-	return &GetPaginationHandler{
+	return &PaginationHandler{
 		serv: serv,
 		ew:   ew,
 	}, nil
 }
 
-func (gh *GetPaginationHandler) Handler(w http.ResponseWriter, r *http.Request) {
+func (gh *PaginationHandler) Handler(w http.ResponseWriter, r *http.Request) {
 	params, err := gh.getValidQueryDTO(r)
 	if err != nil {
 		processingError(w, err, gh.ew)
@@ -53,7 +53,7 @@ func (gh *GetPaginationHandler) Handler(w http.ResponseWriter, r *http.Request) 
 	w.Write(b)
 }
 
-func (gh *GetPaginationHandler) getValidQueryDTO(r *http.Request) (*dto.PaginationQueryParams, error) {
+func (gh *PaginationHandler) getValidQueryDTO(r *http.Request) (*dto.PaginationQueryParams, error) {
 	res := &dto.PaginationQueryParams{}
 
 	if str := r.URL.Query().Get(QueryParamIncidentID); str != "" {

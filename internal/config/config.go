@@ -19,8 +19,6 @@ const (
 	EnvNameWebHookURL            = "WEBHOOK_URL"
 	EnvNameWebhookMethod         = "WEBHOOK_METHOD"
 	EnvNameWebhookMaxReTry       = "WEBHOOK_MAX_RETRY"
-	EnvNameServerAddr            = "SERVER_ADDR"
-	EnvNameServerPort            = "SERVER_PORT"
 	EnvNameDefaultIncidentRadius = "DEFAULT_INCIDENT_RADIUS"
 	EnvNameMaxIncidentRadius     = "MAX_INCIDENT_RADIUS"
 	EnvMaxRowsInPage             = "MAX_ROWS_IN_PAGE"
@@ -43,8 +41,6 @@ const (
 	DefaultDbHost          = "localhost"
 	DefaultDbPort          = "5432"
 	DefaultDbSSLMode       = "disable"
-	DefaultServerAddress   = "localhost"
-	DefaultServerPort      = "8080"
 	DefaultWebhookURL      = "http://localhost:9090"
 	DefaultWebhookMethod   = "POST"
 	DefaultRedisAddr       = "localhost:6379"
@@ -63,8 +59,6 @@ type Config struct {
 	ConnectionStr    string
 	WebhookURL       string
 	WebhookMethod    string
-	ServerAddr       string
-	ServerPort       string
 	DefaultRadius    int
 	MaxRadius        int
 	MaxRowsInPage    int
@@ -89,14 +83,6 @@ func NewConfig(envCfg bool) (*Config, error) {
 				return nil, err
 			}
 		}
-	}
-	serverAddr := os.Getenv(EnvNameServerAddr)
-	if serverAddr == "" {
-		serverAddr = DefaultServerAddress
-	}
-	servPort, err := validationPort(EnvNameServerPort, DefaultServerPort)
-	if err != nil {
-		return nil, err
 	}
 	nameDb := os.Getenv(EnvNameDbName)
 	if nameDb == "" {
@@ -243,8 +229,6 @@ func NewConfig(envCfg bool) (*Config, error) {
 
 	conf := &Config{
 		ConnectionStr:    fmt.Sprintf("user=%s port=%s password=%s dbname=%s host=%s sslmode=%s", dbUser, dbPort, dbPassword, nameDb, dbHost, dbSsl),
-		ServerAddr:       serverAddr,
-		ServerPort:       servPort,
 		WebhookURL:       webhookURL,
 		WebhookMethod:    webhookMethod,
 		DefaultRadius:    defaultRadius,
