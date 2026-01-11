@@ -20,8 +20,8 @@ type RedisQueue struct {
 	durationForPop time.Duration
 }
 
-func NewRedisQueue(cfg *config.Config, ctx context.Context, durationInSecond int64) (*RedisQueue, error) {
-	if durationInSecond <= 0 {
+func NewRedisQueue(cfg *config.Config, ctx context.Context, durationForPop int64) (*RedisQueue, error) {
+	if durationForPop <= 0 {
 		return nil, fmt.Errorf("duration cannot be <= 0")
 	}
 	client := redis.NewClient(&redis.Options{
@@ -32,7 +32,10 @@ func NewRedisQueue(cfg *config.Config, ctx context.Context, durationInSecond int
 	if err != nil {
 		return nil, err
 	}
-	return &RedisQueue{client: client, durationForPop: time.Duration(durationInSecond * int64(time.Second))}, nil
+	return &RedisQueue{
+		client:         client,
+		durationForPop: time.Duration(durationForPop) * time.Second,
+	}, nil
 }
 
 func (rq *RedisQueue) AddToQueue(read *dto.WebhookTask, ctx context.Context) error {

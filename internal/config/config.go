@@ -25,7 +25,7 @@ const (
 	EnvMaxRowsInPage             = "MAX_ROWS_IN_PAGE"
 	EnvRedisAddr                 = "REDIS_ADDR"
 	EnvRedisPassword             = "REDIS_PASSWORD"
-	EnvRedis
+	EnvRedisTTL                  = "REDIS_TTL"
 
 	EnvNameStatsTime        = "STATS_TIME_WINDOW_MINUTES"
 	EnvNameLoggingUserError = "LOGGING_USER_ERROR"
@@ -46,6 +46,8 @@ const (
 	DefaultServerPort    = "8080"
 	DefaultWebhookURL    = "http://localhost:9090"
 	DefaultWebhookMethod = "POST"
+	DefaultRedisAddr     = "localhost:6379"
+	DefaultRedisTTL      = 300
 	DefaultRadius        = 5000
 	DefaultMaxRadius     = 50000
 	DefaultMaxRowsInPage = 10
@@ -67,6 +69,7 @@ type Config struct {
 	loggingUserError bool
 	RedisAddr        string
 	RedisPassword    string
+	RedisTTL         int
 }
 
 func NewConfig(envCfg bool) (*Config, error) {
@@ -123,7 +126,7 @@ func NewConfig(envCfg bool) (*Config, error) {
 	}
 	webhookMethod := os.Getenv(EnvNameWebhookMethod)
 	if webhookMethod != http.MethodPost && webhookMethod != http.MethodGet {
-		log.Printf("invalid WEBHOOK_METHOD on env: <%s>, change to defaul: %s\n", webhookMethod, DefaultWebhookMethod)
+		log.Printf("invalid WEBHOOK_METHOD on env: <%s>, change to default: %s\n", webhookMethod, DefaultWebhookMethod)
 		webhookMethod = DefaultWebhookMethod
 	}
 	maxRadius := DefaultMaxRadius
@@ -138,7 +141,7 @@ func NewConfig(envCfg bool) (*Config, error) {
 		}
 		maxRadius = res
 	} else {
-		log.Printf("invalid MAX_INCIDENT_RADIUS on env: <%s>, change to defaul: %d\n", maxRadiusStr, DefaultMaxRadius)
+		log.Printf("invalid MAX_INCIDENT_RADIUS on env: <%s>, change to default: %d\n", maxRadiusStr, DefaultMaxRadius)
 	}
 
 	defaultRadius := DefaultRadius
@@ -156,7 +159,7 @@ func NewConfig(envCfg bool) (*Config, error) {
 		}
 		defaultRadius = res
 	} else {
-		log.Printf("invalid DEFAULT_INCIDENT_RADIUS on env: <%s>, change to defaul: %d\n", defaultRadiusStr, defaultRadius)
+		log.Printf("invalid DEFAULT_INCIDENT_RADIUS on env: <%s>, change to default: %d\n", defaultRadiusStr, defaultRadius)
 	}
 
 	maxRowsPage := DefaultMaxRowsInPage
@@ -172,7 +175,7 @@ func NewConfig(envCfg bool) (*Config, error) {
 
 		maxRowsPage = res
 	} else {
-		log.Printf("invalid MAX_ROWS_IN_PAGE on env: <%s>, change to defaul: %d\n", maxRowsPageStr, maxRowsPage)
+		log.Printf("invalid MAX_ROWS_IN_PAGE on env: <%s>, change to default: %d\n", maxRowsPageStr, maxRowsPage)
 	}
 	loggingUserError := getBoolEnv(EnvNameLoggingUserError, DefaultLoggingUserError)
 
@@ -189,7 +192,29 @@ func NewConfig(envCfg bool) (*Config, error) {
 
 		statsTimeWindow = res
 	} else {
-		log.Printf("invalid STATS_TIME_WINDOW_MINUTES on env: <%s>, change to defaul: %d\n", statsTimeWindowStr, statsTimeWindow)
+		log.Printf("invalid STATS_TIME_WINDOW_MINUTES on env: <%s>, change to default: %d\n", statsTimeWindowStr, statsTimeWindow)
+	}
+	redisAddr := os.Getenv(EnvRedisAddr)
+	if redisAddr == "" {
+		log.Printf("invalid REDIS_ADDR on env: <%s>, change to default: %s\n", redisAddr, DefaultRedisAddr)
+		redisAddr = DefaultRedisAddr
+	}
+	redisPassword := os.Getenv(EnvRedisPassword)
+
+	redisTTL := DefaultRedisTTL
+	redisTTLStr := os.Getenv(EnvRedisTTL)
+	if redisTTLStr != "" {
+		res, err := strconv.Atoi(redisTTLStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: not integer\n", EnvRedisTTL)
+		}
+		if res <= 0 {
+			return nil, fmt.Errorf("invalid %s: <= 0\n", EnvRedisTTL)
+		}
+
+		redisTTL = res
+	} else {
+		log.Printf("invalid REDIS_TTL on env: <%s>, change to default: %d\n", redisTTLStr, DefaultRedisTTL)
 	}
 
 	conf := &Config{
@@ -203,8 +228,9 @@ func NewConfig(envCfg bool) (*Config, error) {
 		MaxRowsInPage:    maxRowsPage,
 		loggingUserError: loggingUserError,
 		StatsTimeWindow:  statsTimeWindow,
-		RedisAddr:        "localhost:6379",
-		RedisPassword:    "",
+		RedisAddr:        redisAddr,
+		RedisPassword:    redisPassword,
+		RedisTTL:         redisTTL,
 	}
 	return conf, nil
 }
