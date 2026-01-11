@@ -23,6 +23,9 @@ const (
 	EnvNameDefaultIncidentRadius = "DEFAULT_INCIDENT_RADIUS"
 	EnvNameMaxIncidentRadius     = "MAX_INCIDENT_RADIUS"
 	EnvMaxRowsInPage             = "MAX_ROWS_IN_PAGE"
+	EnvRedisAddr                 = "REDIS_ADDR"
+	EnvRedisPassword             = "REDIS_PASSWORD"
+	EnvRedis
 
 	EnvNameStatsTime        = "STATS_TIME_WINDOW_MINUTES"
 	EnvNameLoggingUserError = "LOGGING_USER_ERROR"
@@ -41,7 +44,7 @@ const (
 	DefaultDbSSLMode     = "disable"
 	DefaultServerAddress = "localhost"
 	DefaultServerPort    = "8080"
-	DefaultWebhookURL    = "hhtp://localhost:9090"
+	DefaultWebhookURL    = "http://localhost:9090"
 	DefaultWebhookMethod = "POST"
 	DefaultRadius        = 5000
 	DefaultMaxRadius     = 50000
@@ -62,6 +65,8 @@ type Config struct {
 	MaxRowsInPage    int
 	StatsTimeWindow  int
 	loggingUserError bool
+	RedisAddr        string
+	RedisPassword    string
 }
 
 func NewConfig(envCfg bool) (*Config, error) {
@@ -198,6 +203,8 @@ func NewConfig(envCfg bool) (*Config, error) {
 		MaxRowsInPage:    maxRowsPage,
 		loggingUserError: loggingUserError,
 		StatsTimeWindow:  statsTimeWindow,
+		RedisAddr:        "localhost:6379",
+		RedisPassword:    "",
 	}
 	return conf, nil
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"time"
 
@@ -32,6 +33,14 @@ func (s *Service) RegistrationIncident(ctx context.Context, req *dto.Registratio
 	res, err := s.db.GetInfoByIncidentID(ctx, id, tx)
 	if err != nil {
 		return nil, err
+	}
+	if s.cache != nil {
+		if res.IsActive {
+			err := s.cache.SetActiveIncident(ctx, res)
+			if err != nil {
+				s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", res.Id, err.Error())
+			}
+		}
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -120,11 +129,30 @@ func (s *Service) processingResolvedTime(status string) *time.Time {
 }
 
 func (s *Service) GetIncidentInfoByID(ctx context.Context, id string) (*dto.IncidentAdminResponse, error) {
-	res, err := s.db.GetInfoByIncidentID(ctx, id, nil)
-	if err != nil {
-		return nil, err
+	var read *entities.ReadIncident
+	var err error
+	if s.cache != nil {
+		read, err = s.cache.GetActiveIncident(ctx, id)
+		if err != nil {
+			read = nil
+			s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", id, err.Error())
+		}
 	}
-	return dto.CreateAdminResponse(res, nil), nil
+	if read == nil {
+		read, err = s.db.GetInfoByIncidentID(ctx, id, nil)
+		if err != nil {
+			return nil, err
+		}
+		if s.cache != nil {
+			if read.IsActive {
+				err := s.cache.SetActiveIncident(ctx, read)
+				if err != nil {
+					s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", read.Id, err.Error())
+				}
+			}
+		}
+	}
+	return dto.CreateAdminResponse(read, nil), nil
 }
 
 func (s *Service) UpdateIncidentByID(ctx context.Context, id string, req *dto.UpdateRequest) (*dto.IncidentAdminResponse, error) {
@@ -132,17 +160,24 @@ func (s *Service) UpdateIncidentByID(ctx context.Context, id string, req *dto.Up
 	if err != nil {
 		return nil, err
 	}
-
+	var read *entities.ReadIncident
+	if s.cache != nil {
+		read, err = s.cache.GetActiveIncident(ctx, id)
+		if err != nil {
+			read = nil
+			s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", id, err.Error())
+		}
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
 	}
-
 	defer tx.Rollback()
-
-	read, err := s.db.GetInfoByIncidentID(ctx, id, tx)
-	if err != nil {
-		return nil, err
+	if read == nil {
+		read, err = s.db.GetInfoByIncidentID(ctx, id, tx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := s.processingIncidentIDForUpdate(read, req, id); err != nil {
 		return nil, err
@@ -155,6 +190,14 @@ func (s *Service) UpdateIncidentByID(ctx context.Context, id string, req *dto.Up
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
+	}
+	if s.cache != nil {
+		if res.IsActive {
+			err := s.cache.SetActiveIncident(ctx, model)
+			if err != nil {
+				s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", model.Id, err.Error())
+			}
+		}
 	}
 	s.changeLogger.Printf("INFO: incident %s updated successfully", id)
 	return dto.CreateAdminResponse(model, nil), nil
@@ -233,12 +276,20 @@ func (s *Service) DeactivateIncidentByID(ctx context.Context, id string) (*dto.I
 		return nil, err
 	}
 	defer tx.Rollback()
-
-	read, err := s.db.GetInfoByIncidentID(ctx, id, tx)
-	if err != nil {
-		return nil, err
+	var read *entities.ReadIncident
+	if s.cache != nil {
+		read, err = s.cache.GetActiveIncident(ctx, id)
+		if err != nil {
+			read = nil
+			s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", id, err.Error())
+		}
 	}
-
+	if read == nil {
+		read, err = s.db.GetInfoByIncidentID(ctx, id, tx)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if read.Status == StatusArchived {
 		return nil, fmt.Errorf("incident already archived")
 	}
@@ -261,7 +312,12 @@ func (s *Service) DeactivateIncidentByID(ctx context.Context, id string) (*dto.I
 	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
-
+	if s.cache != nil {
+		err := s.cache.DeleteActiveIncident(ctx, id)
+		if err != nil {
+			s.cacheLogger.Printf("ERROR IN DEL WITH ID: %s, err: %s\n", id, err.Error())
+		}
+	}
 	s.changeLogger.Printf("INFO: incident %s deactivated", id)
 
 	return dto.CreateAdminResponse(updated, nil), nil
@@ -271,6 +327,12 @@ func (s *Service) DeleteIncidentByID(ctx context.Context, id string) error {
 	err := s.db.DeleteIncidentByID(ctx, id, nil)
 	if err != nil {
 		return err
+	}
+	if s.cache != nil {
+		err := s.cache.DeleteActiveIncident(ctx, id)
+		if err != nil {
+			s.cacheLogger.Printf("ERROR IN DEL WITH ID: %s, err: %s\n", id, err.Error())
+		}
 	}
 	s.changeLogger.Printf("CRITICAL: incident %s force deleted", id)
 	return nil
@@ -323,6 +385,14 @@ func (s *Service) GetPagination(ctx context.Context, query *dto.PaginationQueryP
 	res := []*dto.IncidentAdminResponse{}
 
 	for _, model := range read {
+		if model.IsActive {
+			if s.cache != nil {
+				err := s.cache.SetActiveIncident(ctx, model)
+				if err != nil {
+					s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", model.Id, err.Error())
+				}
+			}
+		}
 		dto := dto.CreateAdminResponse(model, nil)
 		res = append(res, dto)
 	}
@@ -409,6 +479,11 @@ func (s *Service) LocationCheck(ctx context.Context, req *dto.LocationCheckReque
 		userIncidents = append(userIncidents, dto.CreateUserResponse(&incident.Incident, &incident.Distance))
 	}
 	res.DetectedIncidentsID = userIncidents
-
+	if isDanger {
+		err := s.wm.AddToQueue(*res, ctx, "", "")
+		if err != nil {
+			log.Printf("error in add to queue webhook\n")
+		}
+	}
 	return res, nil
 }

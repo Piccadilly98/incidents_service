@@ -858,7 +858,7 @@ func Test_processingIncidentIDForUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewService(nil, nil, cfg)
+	s := NewService(nil, nil, cfg, nil)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := s.processingIncidentIDForUpdate(tc.res, tc.resp, tc.res.Id)

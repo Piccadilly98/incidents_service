@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/Piccadilly98/incidents_service/internal/models/dto"
 	"github.com/Piccadilly98/incidents_service/internal/models/entities"
 )
 
@@ -26,10 +27,19 @@ type DbReposytory interface {
 }
 
 type CacheReposytory interface {
+	SetActiveIncident(ctx context.Context, data *entities.ReadIncident) error
+	GetActiveIncident(ctx context.Context, id string) (*entities.ReadIncident, error)
+	DeleteActiveIncident(ctx context.Context, id string) error
 }
 
 type Executor interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+type CacheQueue interface {
+	PopFromQueue(ctx context.Context) (*dto.WebhookTask, bool, error)
+	AddToQueue(read *dto.WebhookTask, ctx context.Context) error
+	PushTask(task *dto.WebhookTask, ctx context.Context) error
 }
