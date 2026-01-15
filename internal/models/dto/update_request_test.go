@@ -103,14 +103,14 @@ func TestUpdateRequest_Validate(t *testing.T) {
 			dto: &dto.UpdateRequest{
 				Radius: getIntPtr(0),
 			},
-			expectedError: fmt.Errorf("radius canot be <= 0"),
+			expectedError: fmt.Errorf("radius cannot be <= 0"),
 		},
 		{
 			name: "negative_radius",
 			dto: &dto.UpdateRequest{
 				Radius: getIntPtr(-50),
 			},
-			expectedError: fmt.Errorf("radius canot be <= 0"),
+			expectedError: fmt.Errorf("radius cannot be <= 0"),
 		},
 		{
 			name: "multiple_errors_first_one_returned",

@@ -39,7 +39,7 @@ func (u *UpdateRequest) Validate() error {
 	}
 	if u.Radius != nil {
 		if *u.Radius <= 0 {
-			return fmt.Errorf("radius canot be <= 0")
+			return fmt.Errorf("radius cannot be <= 0")
 		}
 	}
 	if u.Status != nil {

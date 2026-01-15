@@ -125,7 +125,7 @@ func TestRegistrationIncidentRequest_Validate(t *testing.T) {
 				RadiusInMeters: getIntPtr(0),
 				Status:         getPtrStr("active"),
 			},
-			expectedError: fmt.Errorf("radius canot be <= 0"),
+			expectedError: fmt.Errorf("radius cannot be <= 0"),
 		},
 		{
 			name: "invalid_7_raduis<0",
@@ -138,7 +138,7 @@ func TestRegistrationIncidentRequest_Validate(t *testing.T) {
 				RadiusInMeters: getIntPtr(-1),
 				Status:         getPtrStr("active"),
 			},
-			expectedError: fmt.Errorf("radius canot be <= 0"),
+			expectedError: fmt.Errorf("radius cannot be <= 0"),
 		},
 		{
 			name: "invalid_8_status_empty",

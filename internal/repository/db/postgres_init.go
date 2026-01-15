@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Piccadilly98/incidents_service/internal/repository"
 	_ "github.com/lib/pq"
 )
 
@@ -52,7 +53,7 @@ func (pr *PostgresRepository) PingWithCtx(ctx context.Context) error {
 	return pr.db.PingContext(ctx)
 }
 
-func (pr *PostgresRepository) Begin() (*sql.Tx, error) {
+func (pr *PostgresRepository) Begin() (repository.Tx, error) {
 	return pr.db.Begin()
 }
 

@@ -49,7 +49,7 @@ func (r *RegistrationIncidentRequest) Validate() error {
 		return fmt.Errorf("Description cannot be empty")
 	}
 	if r.RadiusInMeters != nil && *r.RadiusInMeters <= 0 {
-		return fmt.Errorf("radius canot be <= 0")
+		return fmt.Errorf("radius cannot be <= 0")
 	}
 	if r.Status != nil && *r.Status == "" {
 		return fmt.Errorf("status cannot be empty")

@@ -10,7 +10,7 @@ import (
 )
 
 type DbReposytory interface {
-	Begin() (*sql.Tx, error)
+	Begin() (Tx, error)
 	PingWithCtx(ctx context.Context) error
 	PingWithTimeout(duration time.Duration) error
 	Close() error
@@ -26,6 +26,7 @@ type DbReposytory interface {
 	UpdateCheckByID(ctx context.Context, dangersIds []string, checkId string, isDanger bool, exec Executor) error
 	GetCountUniqueUsers(ctx context.Context, exec Executor) (int, error)
 	GetStaticsForIncidentsWithTimeWindow(ctx context.Context, exec Executor, timeWindow int) ([]*entities.IncidentStat, error)
+	Name() string
 }
 
 type CacheReposytory interface {
@@ -33,6 +34,7 @@ type CacheReposytory interface {
 	GetActiveIncident(ctx context.Context, id string) (*entities.ReadIncident, error)
 	DeleteActiveIncident(ctx context.Context, id string) error
 	PingWithCtx(ctx context.Context) error
+	Name() string
 }
 
 type Executor interface {
@@ -46,4 +48,11 @@ type CacheQueue interface {
 	AddToQueue(read *dto.WebhookTask, ctx context.Context) error
 	PushTask(task *dto.WebhookTask, ctx context.Context) error
 	PingWithCtx(ctx context.Context) error
+	Name() string
+}
+
+type Tx interface {
+	Executor
+	Commit() error
+	Rollback() error
 }

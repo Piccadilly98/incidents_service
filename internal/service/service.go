@@ -34,6 +34,10 @@ func (s *Service) RegistrationIncident(ctx context.Context, req *dto.Registratio
 	if err != nil {
 		return nil, err
 	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
 	if s.cache != nil {
 		if res.IsActive {
 			err := s.cache.SetActiveIncident(ctx, res)
@@ -41,10 +45,6 @@ func (s *Service) RegistrationIncident(ctx context.Context, req *dto.Registratio
 				s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", res.Id, err.Error())
 			}
 		}
-	}
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
 	}
 	s.changeLogger.Printf("INFO: Create new incident with id: %s", id)
 	return dto.CreateAdminResponse(res, nil), nil
@@ -132,10 +132,12 @@ func (s *Service) GetIncidentInfoByID(ctx context.Context, id string) (*dto.Inci
 	var read *entities.ReadIncident
 	var err error
 	if s.cache != nil {
+		fmt.Println(s.cache == nil)
+		time.Sleep(10 * time.Second)
 		read, err = s.cache.GetActiveIncident(ctx, id)
 		if err != nil {
 			read = nil
-			s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", id, err.Error())
+			s.cacheLogger.Printf("ERROR IN GET WITH ID: %s, err: %s\n", id, err.Error())
 		}
 	}
 	if read == nil {
@@ -151,6 +153,9 @@ func (s *Service) GetIncidentInfoByID(ctx context.Context, id string) (*dto.Inci
 				}
 			}
 		}
+	}
+	if read == nil {
+		return nil, fmt.Errorf("invalid id")
 	}
 	return dto.CreateAdminResponse(read, nil), nil
 }
