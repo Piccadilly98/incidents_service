@@ -132,8 +132,6 @@ func (s *Service) GetIncidentInfoByID(ctx context.Context, id string) (*dto.Inci
 	var read *entities.ReadIncident
 	var err error
 	if s.cache != nil {
-		fmt.Println(s.cache == nil)
-		time.Sleep(10 * time.Second)
 		read, err = s.cache.GetActiveIncident(ctx, id)
 		if err != nil {
 			read = nil
@@ -153,9 +151,6 @@ func (s *Service) GetIncidentInfoByID(ctx context.Context, id string) (*dto.Inci
 				}
 			}
 		}
-	}
-	if read == nil {
-		return nil, fmt.Errorf("invalid id")
 	}
 	return dto.CreateAdminResponse(read, nil), nil
 }
@@ -276,11 +271,7 @@ func (s *Service) toUpdateEntity(res *entities.ReadIncident, req *dto.UpdateRequ
 }
 
 func (s *Service) DeactivateIncidentByID(ctx context.Context, id string) (*dto.IncidentAdminResponse, error) {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
+	var err error
 	var read *entities.ReadIncident
 	if s.cache != nil {
 		read, err = s.cache.GetActiveIncident(ctx, id)
@@ -289,6 +280,11 @@ func (s *Service) DeactivateIncidentByID(ctx context.Context, id string) (*dto.I
 			s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", id, err.Error())
 		}
 	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
 	if read == nil {
 		read, err = s.db.GetInfoByIncidentID(ctx, id, tx)
 		if err != nil {
