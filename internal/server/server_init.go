@@ -34,16 +34,16 @@ func ServerStart() (chan error, error) {
 		Password:    cfg.RedisPassword,
 		DialTimeout: 2 * time.Second,
 	})
-	ctx, _ := context.WithCancel(context.Background())
-	queue, err := queue.NewRedisQueue(redisClient, ctx, 10)
+
+	queue, err := queue.NewRedisQueue(redisClient, context.Background(), 10)
 	if err != nil {
 		return nil, err
 	}
-	wm, err := webhook_manager.NewWebhookManager(cfg, queue, cfg.WebhookMaxReTry, true, ctx)
+	wm, err := webhook_manager.NewWebhookManager(cfg, queue, cfg.WebhookMaxReTry, true, context.Background())
 	if err != nil {
 		return nil, err
 	}
-	cache, err := cache.NewRedisCache(redisClient, ctx, cfg.RedisTTL)
+	cache, err := cache.NewRedisCache(redisClient, context.Background(), cfg.RedisTTL)
 	if err != nil {
 		return nil, err
 	}
