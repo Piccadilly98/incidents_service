@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"log"
 	"os"
 
@@ -11,7 +10,7 @@ import (
 )
 
 type WebhookSender interface {
-	AddToQueue(result dto.LocationCheckResponse, ctx context.Context, url, method string) error
+	AddToQueue(result dto.LocationCheckResponse, url, method string)
 	Stop()
 }
 

@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/Piccadilly98/incidents_service/internal/models/entities"
 	"github.com/Piccadilly98/incidents_service/internal/repository"
 	"github.com/Piccadilly98/incidents_service/internal/service"
+	"github.com/Piccadilly98/incidents_service/internal/webhook_manager"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -826,6 +828,293 @@ func TestService_DeactivateIncidentByID(t *testing.T) {
 				}
 				if res.ResolvedDate == nil {
 					t.Errorf("ResolvedDate cannot be nil")
+				}
+				if res.UpdatedDate == nil {
+					t.Errorf("UpdatedDate cannot be nil")
+				}
+			}
+		})
+	}
+}
+
+func TestService_DeleteIncidentByID(t *testing.T) {
+	loadId := "new_id"
+	body := &entities.ReadIncident{
+		Id:          loadId,
+		Type:        "type",
+		Description: getStrPtr("new_type"),
+		Latitude:    "38.8",
+		Longitude:   "38.8",
+		Radius:      100,
+	}
+	testCases := []struct {
+		name              string
+		deleteID          string
+		containInDb       bool
+		containInCache    bool
+		expectBodyInCache bool
+		expectBodyInDb    bool
+	}{
+		{
+			name:           "delete_from_cache_and_db",
+			deleteID:       loadId,
+			containInDb:    true,
+			containInCache: true,
+		},
+		{
+			name:           "delete_only_cache",
+			deleteID:       loadId,
+			containInCache: true,
+		},
+		{
+			name:        "delete_only_db",
+			deleteID:    loadId,
+			containInDb: true,
+		},
+		{
+			name:              "delete_random_id",
+			deleteID:          "random",
+			containInDb:       true,
+			containInCache:    true,
+			expectBodyInCache: true,
+			expectBodyInDb:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDb := repository.NewMockDb()
+			mockCache := repository.NewCacheMock()
+			svc := service.NewService(mockDb, mockCache, nil, nil)
+
+			if tc.containInCache {
+
+				mockCache.Storage[loadId] = body
+			}
+			if tc.containInDb {
+				mockDb.Storage[loadId] = body
+			}
+
+			err := svc.DeleteIncidentByID(context.Background(), tc.deleteID)
+			if err != nil {
+				t.Errorf("unexpected err: %s\n", err.Error())
+			}
+
+			if mockDb.Tx != nil {
+				t.Errorf("unexpected tx in db\n")
+			}
+			if !tc.expectBodyInCache {
+				if _, err := mockDb.GetInfoByIncidentID(context.Background(), loadId, nil); err == nil {
+					t.Errorf("unexpected row in db with id: %s\n", loadId)
+				}
+			} else {
+				if _, err := mockDb.GetInfoByIncidentID(context.Background(), loadId, nil); err != nil {
+					t.Errorf("invalid delete, cannot contains in cache\n")
+				}
+			}
+			if !tc.expectBodyInDb {
+				if _, err := mockCache.GetActiveIncident(context.Background(), loadId); err == nil {
+					t.Errorf("unexpected row in cache with id: %s\n", loadId)
+				}
+			} else {
+				if _, err := mockCache.GetActiveIncident(context.Background(), loadId); err != nil {
+					t.Errorf("invalid delete, cannot contains in db\n")
+				}
+			}
+		})
+	}
+}
+
+func TestService_LocationCheck(t *testing.T) {
+	inc1 := &entities.ReadIncident{
+		Id:        "inc_1",
+		Latitude:  "55.755826",
+		Longitude: "37.617300",
+		Status:    service.StatusActive,
+		IsActive:  true,
+		Radius:    2000,
+	}
+	inc2 := &entities.ReadIncident{
+		Id:        "inc_2",
+		Latitude:  "55.7735",
+		Longitude: "37.6200",
+		Status:    service.StatusActive,
+		IsActive:  true,
+		Radius:    1000,
+	}
+	inc3 := &entities.ReadIncident{
+		Id:          "inc_3",
+		Latitude:    "37.1406",
+		Longitude:   "115.4840",
+		Status:      service.StatusActive,
+		IsActive:    true,
+		Description: getStrPtr("zone-51!"),
+		Radius:      1000,
+	}
+	inc4 := &entities.ReadIncident{
+		Id:          "inc_4",
+		Latitude:    "37",
+		Longitude:   "115",
+		Status:      service.StatusArchived,
+		IsActive:    false,
+		Description: getStrPtr("inactive"),
+		Radius:      1000,
+	}
+	testCases := []struct {
+		name                  string
+		checkBody             *dto.LocationCheckRequest
+		expectCheck           bool
+		expectedIds           []string
+		expectedIsDanger      bool
+		expectedErrContain    string
+		ContainsIdsInWeebhook bool
+	}{
+		{
+			name: "check_coord_inc_1",
+			checkBody: &dto.LocationCheckRequest{
+				UserID:    "new_user",
+				Latitude:  "55.755826",
+				Longitude: "37.617300",
+			},
+			expectCheck:      true,
+			expectedIds:      []string{"inc_1"},
+			expectedIsDanger: true,
+		},
+		{
+			name: "check_coord_inc_1_and_inc_2",
+			checkBody: &dto.LocationCheckRequest{
+				UserID:    "test_user",
+				Latitude:  "55.7650",
+				Longitude: "37.6184",
+			},
+			expectCheck:      true,
+			expectedIds:      []string{"inc_1", "inc_2"},
+			expectedIsDanger: true,
+		},
+		{
+			name: "check_inactive_incident",
+			checkBody: &dto.LocationCheckRequest{
+				UserID:    "test_user",
+				Latitude:  "37",
+				Longitude: "115",
+			},
+			expectCheck:      true,
+			expectedIsDanger: false,
+		},
+
+		{
+			name: "invalid_user_id_empty",
+			checkBody: &dto.LocationCheckRequest{
+				UserID:    "",
+				Latitude:  "37",
+				Longitude: "115",
+			},
+			expectCheck:        false,
+			expectedIsDanger:   false,
+			expectedErrContain: "user_id cannot be empty",
+		},
+		{
+			name: "invalid_latitude_empty",
+			checkBody: &dto.LocationCheckRequest{
+				UserID:    "user_1",
+				Latitude:  "",
+				Longitude: "115",
+			},
+			expectCheck:        false,
+			expectedIsDanger:   false,
+			expectedErrContain: "latitude incorrect parse",
+		},
+
+		{
+			name: "вне всех зон",
+			checkBody: &dto.LocationCheckRequest{
+				UserID:    "user-out",
+				Latitude:  "55.9000",
+				Longitude: "37.8000",
+			},
+			expectedIsDanger: false,
+			expectCheck:      true,
+			expectedIds:      []string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDb := repository.NewMockDb()
+			mockCache := repository.NewCacheMock()
+			mockWebhook := webhook_manager.NewMockWebhookManager()
+			svc := service.NewService(mockDb, mockCache, nil, mockWebhook)
+
+			mockDb.Storage[inc1.Id] = inc1
+			mockDb.Storage[inc2.Id] = inc2
+			mockDb.Storage[inc3.Id] = inc3
+			mockDb.Storage[inc4.Id] = inc4
+
+			res, err := svc.LocationCheck(context.Background(), tc.checkBody)
+
+			if err != nil {
+				if tc.expectedErrContain != "" {
+					if !strings.Contains(err.Error(), tc.expectedErrContain) {
+						t.Errorf("ERROR: got: %s, expect: %s\n", err.Error(), tc.expectedErrContain)
+					}
+				} else {
+					t.Errorf("unexpected error: %s\n", err.Error())
+				}
+			}
+			if tc.expectCheck {
+				if _, ok := mockDb.Checks[res.ID]; !ok {
+					t.Errorf("check_id: %s, not contains in checks\n", res.ID)
+				}
+				if mockDb.Tx != nil {
+					if !mockDb.Tx.Committed {
+						t.Errorf("tx cannot commit\n")
+					}
+				} else {
+					t.Errorf("tx cannot start")
+				}
+			} else {
+				if mockDb.Tx != nil {
+					t.Errorf("tx cannot be started\n")
+				}
+				if res != nil {
+					t.Errorf("unexpected result\n")
+				}
+			}
+			if res != nil {
+				if res.IsDanger != tc.expectedIsDanger {
+					t.Errorf("is_danger: got: %v, expect: %v\n", res.IsDanger, tc.expectedIsDanger)
+				}
+				if res.Latitude != tc.checkBody.Latitude {
+					t.Errorf("result latitude != request latitude\n")
+				}
+				if res.Longitude != tc.checkBody.Longitude {
+					t.Errorf("result lingitude != request longitude\n")
+				}
+				if res.UserID != tc.checkBody.UserID {
+					t.Errorf("result user_id != request user_id\n")
+				}
+				if tc.ContainsIdsInWeebhook {
+					if len(res.DetectedIncidentsID) != len(tc.expectedIds) {
+						t.Errorf("COUNT DETECTED: got: %d, expect: %d\n", len(res.DetectedIncidentsID), len(tc.expectedIds))
+					}
+					if len(mockWebhook.Storage) != 1 {
+						t.Errorf("webhook not add new task\n")
+					}
+					if len(mockWebhook.Storage) == 1 {
+						if len(mockWebhook.Storage[0].Dto.DetectedIncidentsID) != len(tc.expectedIds) {
+							t.Errorf("COUNT DETECTED IN WEBHOOK: got: %d, expect: %d\n", len(mockWebhook.Storage[0].Dto.DetectedIncidentsID), len(tc.expectedIds))
+						}
+					}
+				}
+				for _, incident := range res.DetectedIncidentsID {
+					if !slices.Contains(tc.expectedIds, incident.ID) {
+						t.Errorf("not contains id in result: %s\n", incident.ID)
+					}
+				}
+
+			} else {
+				if len(mockWebhook.Storage) != 0 {
+					t.Errorf("unexpected webhook sends\n")
 				}
 			}
 		})

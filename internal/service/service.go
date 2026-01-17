@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"time"
 
@@ -463,11 +462,9 @@ func (s *Service) LocationCheck(ctx context.Context, req *dto.LocationCheckReque
 	if err != nil {
 		return nil, err
 	}
-
 	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
-
 	res := &dto.LocationCheckResponse{
 		ID:        checkId,
 		UserID:    req.UserID,
@@ -480,11 +477,8 @@ func (s *Service) LocationCheck(ctx context.Context, req *dto.LocationCheckReque
 		userIncidents = append(userIncidents, dto.CreateUserResponse(&incident.Incident, &incident.Distance))
 	}
 	res.DetectedIncidentsID = userIncidents
-	if isDanger {
-		err := s.wm.AddToQueue(*res, ctx, "", "")
-		if err != nil {
-			log.Printf("error in add to queue webhook\n")
-		}
+	if isDanger && s.wm != nil {
+		s.wm.AddToQueue(*res, "", "")
 	}
 	return res, nil
 }

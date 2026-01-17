@@ -81,9 +81,9 @@ func (wm *WebhookManager) Stop() {
 	wm.cancel()
 }
 
-func (wm *WebhookManager) AddToQueue(result dto.LocationCheckResponse, ctx context.Context, url, method string) error {
+func (wm *WebhookManager) AddToQueue(result dto.LocationCheckResponse, url, method string) {
 	if !result.IsDanger {
-		return fmt.Errorf("invalid input: is_danger cannot be false")
+		return
 	}
 	if url == "" {
 		url = wm.defaultUrl
@@ -97,8 +97,12 @@ func (wm *WebhookManager) AddToQueue(result dto.LocationCheckResponse, ctx conte
 		Method: method,
 	}
 
-	err := wm.cacheQueue.AddToQueue(body, ctx)
-	return err
+	go func() {
+		err := wm.cacheQueue.AddToQueue(body, context.Background())
+		if err != nil {
+			log.Printf("ERROR IN ADD TO QUEUE: %s\n", err.Error())
+		}
+	}()
 }
 
 func (wm *WebhookManager) StartProcessing() {

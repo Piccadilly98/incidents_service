@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -11,8 +13,19 @@ import (
 	"github.com/google/uuid"
 )
 
+const R = 6371000
+
+type Check struct {
+	UserID    string
+	Latitude  string
+	Longitude string
+	IsDanger  bool
+	DangerIds []string
+}
+
 type MockDbRepository struct {
 	Storage map[string]*entities.ReadIncident
+	Checks  map[string]*Check
 	Mu      *sync.RWMutex
 	Tx      *FakeTx
 	InTx    bool
@@ -21,7 +34,9 @@ type MockDbRepository struct {
 func NewMockDb() *MockDbRepository {
 	return &MockDbRepository{
 		Storage: make(map[string]*entities.ReadIncident),
-		Mu:      &sync.RWMutex{}}
+		Mu:      &sync.RWMutex{},
+		Checks:  make(map[string]*Check),
+	}
 }
 
 func (m *MockDbRepository) Begin() (Tx, error) {
@@ -149,14 +164,79 @@ func (m *MockDbRepository) GetPaginationIncidentsInfo(ctx context.Context, entit
 }
 
 func (m *MockDbRepository) RegistrationCheck(ctx context.Context, userID, latitude, longitude string, exec Executor) (string, error) {
-	return "", nil
+	if exec != nil {
+		m.InTx = true
+	}
+	id := uuid.NewString()
+
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+
+	m.Checks[id] = &Check{
+		UserID:    userID,
+		Latitude:  latitude,
+		Longitude: longitude,
+	}
+
+	return id, nil
+}
+
+func haversine(lat1, lon1, lat2, lon2 float64) float64 {
+
+	dLat := (lat2 - lat1) * math.Pi / 180
+	dLon := (lon2 - lon1) * math.Pi / 180
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*math.Pi/180)*math.Cos(lat2*math.Pi/180)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return R * c
 }
 
 func (m *MockDbRepository) GetDetectedIncidents(ctx context.Context, longitude, latitude string, exec Executor) ([]*entities.DistanceCheck, error) {
-	return nil, nil
+	if exec != nil {
+		m.InTx = true
+	}
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	res := []*entities.DistanceCheck{}
+
+	for _, incident := range m.Storage {
+		lat, _ := strconv.ParseFloat(latitude, 64)
+		lon, _ := strconv.ParseFloat(longitude, 64)
+		incLat, _ := strconv.ParseFloat(incident.Latitude, 64)
+		incLon, _ := strconv.ParseFloat(incident.Longitude, 64)
+
+		dist := haversine(lat, lon, incLat, incLon)
+
+		if dist <= float64(incident.Radius) && incident.IsActive && incident.Status == "active" {
+			res = append(res, &entities.DistanceCheck{
+				Incident: *incident,
+				Distance: dist,
+			})
+		}
+	}
+
+	return res, nil
 }
 
 func (m *MockDbRepository) UpdateCheckByID(ctx context.Context, dangersIds []string, checkId string, isDanger bool, exec Executor) error {
+	if exec != nil {
+		m.InTx = true
+	}
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+
+	res, ok := m.Checks[checkId]
+	if !ok {
+		return sql.ErrNoRows
+	}
+
+	res.DangerIds = dangersIds
+	res.IsDanger = isDanger
+
 	return nil
 }
 
