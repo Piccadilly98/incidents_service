@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Piccadilly98/incidents_service/internal/config"
@@ -23,15 +24,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const (
-	DefaultServerAddr = "localhost"
-	DefaultServerPort = "8080"
-)
-
-func ServerStart() error {
+func ServerStart() (chan error, error) {
 	cfg, err := config.NewConfig(true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:        cfg.RedisAddr,
@@ -41,58 +37,63 @@ func ServerStart() error {
 	ctx, _ := context.WithCancel(context.Background())
 	queue, err := queue.NewRedisQueue(redisClient, ctx, 10)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	wm, err := webhook_manager.NewWebhookManager(cfg, queue, cfg.WebhookMaxReTry, true, ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cache, err := cache.NewRedisCache(redisClient, ctx, cfg.RedisTTL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	db, err := db.NewDB(cfg.ConnectionStr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	healthChecker := health.NewHealthChecker([]health.Checks{db, queue, cache})
 	service := service.NewService(db, cache, cfg, wm)
 	r := chi.NewRouter()
-	ew := error_worker.NewErrorWorker(true)
+	ew := error_worker.NewErrorWorker(cfg.LoggingUserError)
 	regHandler, err := handlers.NewRegistrationHandler(service, ew)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	get, err := handlers.NewGetHandler(service, ew)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	healthHandler := handlers.NewHealthHandler(healthChecker, ew)
 	updateHandler, err := handlers.NewUpdateHandler(service, ew)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	del, err := handlers.NewDeactivateHandler(service, ew)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	pagination, err := handlers.NewPaginationHandler(service, ew)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	lockCheck, err := handlers.NewLocationCheckHandler(service, ew)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	staticHandler, err := handlers.NewStatisticHandler(service, ew)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	mid := middleware.CheckMiddleware("1234")
+	apiKey := os.Getenv("API_KEY")
+	if apiKey == "" {
+		log.Fatal("API_KEY not set in .env")
+	}
+	fmt.Printf("\n\n\nAPI Key (для админских эндпоинтов): %-36s \n", apiKey)
+	fmt.Printf("Используй в заголовке: X-API-Key: %s \n\n\n", apiKey)
+	mid := middleware.CheckMiddleware(apiKey)
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/location/check", lockCheck.Handler)
-		r.Get("/incidents/stats", staticHandler.Handler)
 		r.Get("/system/health", healthHandler.Handler)
 		r.Post("/test", func(w http.ResponseWriter, r *http.Request) {
 			v := dto.ResultWebhookRequestDTO{}
@@ -103,11 +104,11 @@ func ServerStart() error {
 				return
 			}
 			log.Println(v)
-			w.WriteHeader(http.StatusServiceUnavailable)
+			w.WriteHeader(http.StatusOK)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(mid)
-
+			r.Get("/incidents/stats", staticHandler.Handler)
 			r.Delete("/incidents/{id}", del.Handler)
 			r.Post("/incidents", regHandler.Handler)
 			r.Put("/incidents/{id}", updateHandler.Handler)
@@ -115,6 +116,14 @@ func ServerStart() error {
 			r.Get("/incidents", pagination.Handler)
 		})
 	})
-	err = http.ListenAndServe(fmt.Sprintf("%s:%s", DefaultServerAddr, DefaultServerPort), r)
-	return err
+	errCh := make(chan error)
+	go func() {
+		addr := fmt.Sprintf("%s:%s", cfg.ServerAddr, cfg.ServerPort)
+		log.Printf("Starting HTTP server on %s", addr)
+		if err := http.ListenAndServe(addr, r); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+	return errCh, nil
 }

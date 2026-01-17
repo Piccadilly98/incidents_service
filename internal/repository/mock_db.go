@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -16,11 +17,12 @@ import (
 const R = 6371000
 
 type Check struct {
-	UserID    string
-	Latitude  string
-	Longitude string
-	IsDanger  bool
-	DangerIds []string
+	UserID      string
+	Latitude    string
+	Longitude   string
+	IsDanger    bool
+	DangerIds   []string
+	CreatedDate time.Time
 }
 
 type MockDbRepository struct {
@@ -173,9 +175,10 @@ func (m *MockDbRepository) RegistrationCheck(ctx context.Context, userID, latitu
 	defer m.Mu.Unlock()
 
 	m.Checks[id] = &Check{
-		UserID:    userID,
-		Latitude:  latitude,
-		Longitude: longitude,
+		UserID:      userID,
+		Latitude:    latitude,
+		Longitude:   longitude,
+		CreatedDate: time.Now(),
 	}
 
 	return id, nil
@@ -241,11 +244,52 @@ func (m *MockDbRepository) UpdateCheckByID(ctx context.Context, dangersIds []str
 }
 
 func (m *MockDbRepository) GetCountUniqueUsers(ctx context.Context, exec Executor) (int, error) {
-	return 0, nil
+	if exec != nil {
+		m.InTx = true
+	}
+	m.Mu.RLock()
+	defer m.Mu.RUnlock()
+
+	userSet := make(map[string]struct{})
+	for _, check := range m.Checks {
+		userSet[check.UserID] = struct{}{}
+	}
+
+	return len(userSet), nil
+}
+
+func (m *MockDbRepository) getStatisticForIncidentById(id string, timeWindow int) *entities.IncidentStat {
+	inc := m.Storage[id]
+	res := &entities.IncidentStat{
+		ID:   id,
+		Name: inc.Name,
+		Type: inc.Type,
+	}
+	userCount := map[string]struct{}{}
+	for _, check := range m.Checks {
+		if slices.Contains(check.DangerIds, id) &&
+			check.CreatedDate.Add(-time.Duration(timeWindow)*time.Second).Compare(time.Now()) >= 0 {
+			userCount[check.UserID] = struct{}{}
+		}
+	}
+
+	res.UserCount = len(userCount)
+
+	return res
 }
 
 func (m *MockDbRepository) GetStaticsForIncidentsWithTimeWindow(ctx context.Context, exec Executor, timeWindow int) ([]*entities.IncidentStat, error) {
-	return nil, nil
+	if exec != nil {
+		m.InTx = true
+	}
+	m.Mu.RLock()
+	defer m.Mu.RUnlock()
+
+	result := []*entities.IncidentStat{}
+	for id := range m.Storage {
+		result = append(result, m.getStatisticForIncidentById(id, timeWindow))
+	}
+	return result, nil
 }
 
 func (m *MockDbRepository) RegistrationIncident(ctx context.Context, entit *entities.RegistrationIncidentEntitie, exec Executor) (string, error) {

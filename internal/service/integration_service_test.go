@@ -43,6 +43,21 @@ func TestService_RegistrationIncident_No_Cache(t *testing.T) {
 			checkTx:      true,
 		},
 		{
+			name: "успешное создание без ошибок с комментарием",
+			req: &dto.RegistrationIncidentRequest{
+				Name:           "Пожар в лесу",
+				Type:           "fire",
+				Latitude:       "55.7558",
+				Longitude:      "37.6173",
+				RadiusInMeters: ptrInt(500),
+				Description:    getStrPtr("true"),
+			},
+			wantErr:      false,
+			wantID:       true,
+			checkStorage: true,
+			checkTx:      true,
+		},
+		{
 			name: "ошибка валидации - пустое имя",
 			req: &dto.RegistrationIncidentRequest{
 				Name:      "",
@@ -543,7 +558,7 @@ func TestService_UpdateIncidentByID(t *testing.T) {
 				IsActive: true,
 			},
 			body: &dto.UpdateRequest{
-				Name: getStrPtr("test"), // то же самое имя
+				Name: getStrPtr("test"),
 			},
 			expectErr:     true,
 			containErr:    "no data for update",

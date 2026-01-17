@@ -39,7 +39,7 @@ func (rq *RedisQueue) AddToQueue(read *dto.WebhookTask, ctx context.Context) err
 		return err
 	}
 
-	return rq.client.RPush(ctx, KeyQueue, b).Err()
+	return rq.client.LPush(ctx, KeyQueue, b).Err()
 }
 
 func (rq *RedisQueue) PopFromQueue(ctx context.Context) (*dto.WebhookTask, bool, error) {
@@ -61,15 +61,6 @@ func (rq *RedisQueue) PopFromQueue(ctx context.Context) (*dto.WebhookTask, bool,
 	}
 
 	return task, true, nil
-}
-
-func (rq *RedisQueue) PushTask(task *dto.WebhookTask, ctx context.Context) error {
-	b, err := json.Marshal(task)
-	if err != nil {
-		return err
-	}
-
-	return rq.client.RPush(ctx, KeyQueue, b).Err()
 }
 
 func (rq *RedisQueue) PingWithCtx(ctx context.Context) error {

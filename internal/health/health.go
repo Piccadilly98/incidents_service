@@ -49,8 +49,3 @@ func (hc *HealthChecker) Check(ctx context.Context) (*dto.HealthCheckResponse, i
 
 	return res, code
 }
-
-type Checks interface {
-	Name() string
-	PingWithCtx(ctx context.Context) error
-}

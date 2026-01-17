@@ -31,7 +31,7 @@ func NewService(db repository.DbReposytory, cache repository.CacheReposytory, co
 		config:           config,
 		changeLogger:     log.New(os.Stdout, "[UPDATE INCIDENT INFO] ", log.Ldate|log.Ltime),
 		dbCriticalLogger: log.New(os.Stderr, "[DB PING ERROR] ", log.Ldate|log.Ltime),
-		cacheLogger:      log.New(os.Stderr, "[CACHE ERROR]", log.Ldate|log.Ltime),
+		cacheLogger:      log.New(os.Stderr, "[CACHE ERROR] ", log.Ldate|log.Ltime),
 		wm:               wm,
 	}
 }

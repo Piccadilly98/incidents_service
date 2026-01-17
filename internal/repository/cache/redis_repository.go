@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Piccadilly98/incidents_service/internal/models/entities"
@@ -25,7 +26,7 @@ func NewRedisCache(client *redis.Client, ctx context.Context, ttlInSecond int) (
 	if err != nil {
 		return nil, err
 	}
-
+	log.Println("Redis client connected successfully")
 	return &RedisCache{
 		client:      client,
 		ttlInSecond: time.Duration(ttlInSecond) * time.Second,

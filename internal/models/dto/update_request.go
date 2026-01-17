@@ -8,7 +8,7 @@ import (
 )
 
 type UpdateRequest struct {
-	Name        *string `json:"incident_name"`
+	Name        *string `json:"name"`
 	Type        *string `json:"type"`
 	Description *string `json:"description"`
 	Radius      *int    `json:"radius"`

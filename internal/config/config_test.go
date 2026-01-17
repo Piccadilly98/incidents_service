@@ -626,8 +626,8 @@ func TestNewConfig_AdditionalFields(t *testing.T) {
 			if cfg.StatsTimeWindow != tc.expectedStatsTime {
 				t.Errorf("StatsTimeWindow: got %d, want %d", cfg.StatsTimeWindow, tc.expectedStatsTime)
 			}
-			if cfg.loggingUserError != tc.expectedLoggingError {
-				t.Errorf("loggingUserError: got %v, want %v", cfg.loggingUserError, tc.expectedLoggingError)
+			if cfg.LoggingUserError != tc.expectedLoggingError {
+				t.Errorf("loggingUserError: got %v, want %v", cfg.LoggingUserError, tc.expectedLoggingError)
 			}
 		})
 	}

@@ -46,7 +46,6 @@ type Executor interface {
 type CacheQueue interface {
 	PopFromQueue(ctx context.Context) (*dto.WebhookTask, bool, error)
 	AddToQueue(read *dto.WebhookTask, ctx context.Context) error
-	PushTask(task *dto.WebhookTask, ctx context.Context) error
 	PingWithCtx(ctx context.Context) error
 	Name() string
 }

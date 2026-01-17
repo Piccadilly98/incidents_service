@@ -13,3 +13,6 @@ tests-cover:
 
 tests-v:
 	go test -v ./...
+
+tests-all:
+	go test -v -cover ./...

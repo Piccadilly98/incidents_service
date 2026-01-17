@@ -164,7 +164,7 @@ func (s *Service) UpdateIncidentByID(ctx context.Context, id string, req *dto.Up
 		read, err = s.cache.GetActiveIncident(ctx, id)
 		if err != nil {
 			read = nil
-			s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", id, err.Error())
+			s.cacheLogger.Printf("ERROR IN GET WITH ID: %s, err: %s\n", id, err.Error())
 		}
 	}
 	tx, err := s.db.Begin()
@@ -276,7 +276,7 @@ func (s *Service) DeactivateIncidentByID(ctx context.Context, id string) (*dto.I
 		read, err = s.cache.GetActiveIncident(ctx, id)
 		if err != nil {
 			read = nil
-			s.cacheLogger.Printf("ERROR IN SET WITH ID: %s, err: %s\n", id, err.Error())
+			s.cacheLogger.Printf("ERROR IN GET WITH ID: %s, err: %s\n", id, err.Error())
 		}
 	}
 	tx, err := s.db.Begin()

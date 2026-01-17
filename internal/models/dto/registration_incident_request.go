@@ -23,7 +23,7 @@ const (
 )
 
 type RegistrationIncidentRequest struct {
-	Name           string  `json:"incident_name"`
+	Name           string  `json:"name"`
 	Type           string  `json:"type"`
 	Latitude       string  `json:"latitude"`
 	Longitude      string  `json:"longitude"`

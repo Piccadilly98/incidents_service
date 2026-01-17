@@ -134,7 +134,7 @@ func (wm *WebhookManager) StartProcessing() {
 						delay := min(time.Duration(task.CountReTry*2)*time.Second, 30*time.Second)
 						time.Sleep(delay)
 					}
-					err = wm.cacheQueue.PushTask(task, wm.ctx)
+					err = wm.cacheQueue.AddToQueue(task, wm.ctx)
 					if err != nil {
 						wm.webhookLogger.Printf("error in re-push task: %s\nDelete task", err.Error())
 					}

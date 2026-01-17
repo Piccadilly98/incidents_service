@@ -18,6 +18,8 @@ const (
 
 	EnvNameWebHookURL            = "WEBHOOK_URL"
 	EnvNameWebhookMethod         = "WEBHOOK_METHOD"
+	EnvNameServerPort            = "SERVER_PORT"
+	EnvNameServerAddr            = "SERVER_ADDR"
 	EnvNameWebhookMaxReTry       = "WEBHOOK_MAX_RETRY"
 	EnvNameDefaultIncidentRadius = "DEFAULT_INCIDENT_RADIUS"
 	EnvNameMaxIncidentRadius     = "MAX_INCIDENT_RADIUS"
@@ -41,14 +43,16 @@ const (
 	DefaultDbHost          = "localhost"
 	DefaultDbPort          = "5432"
 	DefaultDbSSLMode       = "disable"
-	DefaultWebhookURL      = "http://localhost:9090"
+	DefaultWebhookURL      = "http://localhost:8080/test"
 	DefaultWebhookMethod   = "POST"
-	DefaultRedisAddr       = "localhost:6379"
+	DefaultRedisAddr       = "localhost:6380"
 	DefaultRedisTTL        = 300
 	DefaultRadius          = 5000
 	DefaultMaxRadius       = 50000
 	DefaultMaxRowsInPage   = 10
 	DefaultWebhookMaxReTry = 3
+	DefaultServerAddr      = "localhost"
+	DefaultServerPort      = "8080"
 
 	DefaultStatsTime        = 100
 	MaxStatsTime            = 999_999_999
@@ -63,11 +67,13 @@ type Config struct {
 	MaxRadius        int
 	MaxRowsInPage    int
 	StatsTimeWindow  int
-	loggingUserError bool
+	LoggingUserError bool
 	RedisAddr        string
 	RedisPassword    string
 	RedisTTL         int
 	WebhookMaxReTry  int
+	ServerAddr       string
+	ServerPort       string
 }
 
 func NewConfig(envCfg bool) (*Config, error) {
@@ -83,6 +89,14 @@ func NewConfig(envCfg bool) (*Config, error) {
 				return nil, err
 			}
 		}
+	}
+	serverPort := os.Getenv(EnvNameServerPort)
+	if serverPort == "" {
+		serverPort = DefaultServerPort
+	}
+	serverAddr := os.Getenv(EnvNameServerAddr)
+	if serverAddr == "" {
+		serverAddr = DefaultServerAddr
 	}
 	nameDb := os.Getenv(EnvNameDbName)
 	if nameDb == "" {
@@ -234,12 +248,14 @@ func NewConfig(envCfg bool) (*Config, error) {
 		DefaultRadius:    defaultRadius,
 		MaxRadius:        maxRadius,
 		MaxRowsInPage:    maxRowsPage,
-		loggingUserError: loggingUserError,
+		LoggingUserError: loggingUserError,
 		StatsTimeWindow:  statsTimeWindow,
 		RedisAddr:        redisAddr,
 		RedisPassword:    redisPassword,
 		RedisTTL:         redisTTL,
 		WebhookMaxReTry:  webhookMaxReTry,
+		ServerAddr:       serverAddr,
+		ServerPort:       serverPort,
 	}
 	return conf, nil
 }

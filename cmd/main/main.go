@@ -7,9 +7,13 @@ import (
 )
 
 func main() {
-	err := server.ServerStart()
+	ch, err := server.ServerStart()
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	err = <-ch
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("server stop")
 }
