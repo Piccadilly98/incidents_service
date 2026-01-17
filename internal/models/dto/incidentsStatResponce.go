@@ -24,7 +24,7 @@ func ToIncidentsStatResponse(entities []*entities.IncidentStat, timeWindow int, 
 	res := &IncidentsStatResponse{
 		TotalUniqueUser: totalUniqueUsers,
 		TimeStatWindow:  timeWindow,
-		FromDate:        timeRequest.UTC().Add(-(time.Duration(timeWindow) * time.Second)),
+		FromDate:        timeRequest.UTC().Add(-(time.Duration(timeWindow) * time.Minute)),
 		ToDate:          timeRequest.UTC(),
 		TotalIncidents:  len(entities),
 	}
